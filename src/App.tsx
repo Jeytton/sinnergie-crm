@@ -9,6 +9,7 @@ import Locacoes from './components/Locacoes';
 import Financeiro from './components/Financeiro';
 import DatabaseModal from './components/DatabaseModal';
 import Login from './components/Login';
+import AiAssistant from './components/AiAssistant';
 
 import {
   Users,
@@ -426,6 +427,17 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* ── ASSISTENTE IA FLUTUANTE ───────────────────────────────────── */}
+      <AiAssistant
+        contatos={contatos}
+        tarefas={tarefas}
+        locacoes={locacoes}
+        onCreateLocacao={handleSaveLocacao}
+        onCreateTarefa={handleSaveTarefa}
+        onCreateContato={handleSaveContato}
+        onUpdateLocacao={(id, data) => handleSaveLocacao({ id, ...data })}
+      />
 
       {/* ── MODAL DIAGNÓSTICO SUPABASE ─────────────────────────────────── */}
       <DatabaseModal
