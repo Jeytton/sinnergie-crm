@@ -4,7 +4,7 @@ import { Contato, Tarefa, Locacao } from './types';
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-1.5-flash';
 
 async function generate(prompt: string): Promise<string> {
   if (!ai) throw new Error('VITE_GEMINI_API_KEY não configurada no arquivo .env');

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { X, Send, Sparkles, Loader2, Bot, RefreshCw } from 'lucide-react';
 import { Contato, Tarefa, Locacao } from '../types';
@@ -281,7 +281,7 @@ ${pendentes.slice(0, 20).map(t =>
 
     try {
       let response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents,
         tools: [{ functionDeclarations: TOOL_DECLS }],
         config: { systemInstruction },
@@ -305,7 +305,7 @@ ${pendentes.slice(0, 20).map(t =>
         };
 
         const response2 = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-1.5-flash',
           contents: [...contents, modelTurn, funcResponseTurn],
           config: { systemInstruction },
         });
