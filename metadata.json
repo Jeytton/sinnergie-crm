@@ -1,0 +1,6 @@
+{
+  "name": "Sinnergie CRM",
+  "description": "Sistema de CRM profissional para gestão de contatos, pipeline de vendas, tarefas, além de controle financeiro e locações de equipamentos estéticos Sinnergie.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
