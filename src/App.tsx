@@ -23,7 +23,11 @@ import {
   Sun,
   Moon,
   LogOut,
-  CloudOff
+  CloudOff,
+  Trash2,
+  AlertTriangle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 function checkStoredAuth(): boolean {
@@ -44,6 +48,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [clearDbStep, setClearDbStep] = useState<0 | 1 | 2>(0); // 0=hidden 1=first confirm 2=second confirm
 
   // Dark / Light Theme engine
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -182,6 +187,14 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
+  const handleClearAllData = async () => {
+    await crmService.clearAllData(dbStatus.usingFallback);
+    setContatos([]);
+    setTarefas([]);
+    setLocacoes([]);
+    setClearDbStep(0);
+  };
+
   // Nav helpers
   const handlePageNavigation = (page: string) => {
     setActivePage(page);
@@ -192,241 +205,218 @@ export default function App() {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
   }
 
+  const navItems = [
+    { id: 'dashboard', label: 'Painel Geral', icon: LayoutDashboard },
+    { id: 'contatos', label: 'Contatos / CRM', icon: Users },
+    { id: 'pipeline', label: 'Pipeline Kanban', icon: Flame },
+    { id: 'tarefas', label: 'Tarefas e Retornos', icon: CheckSquare },
+    { id: 'locacoes', label: 'Locações de Máquinas', icon: Package },
+    { id: 'financeiro', label: 'Gestão Financeira', icon: BarChart2 },
+  ];
+
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-gray-50 text-gray-900 flex flex-col font-sans`}>
-      
-      {/* GLOBAL HEADER */}
-      <header className="h-16 bg-[#1c1c1c] text-white flex items-center justify-between px-5 md:px-6 border-b border-gray-800 shrink-0 sticky top-0 z-40">
+
+      {/* ── HEADER ─────────────────────────────────────────────────────── */}
+      <header className="h-16 bg-[#0E0709] text-white flex items-center justify-between px-5 md:px-6 shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          {/* Mobile hamburger menu button */}
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded transition-colors"
+            className="md:hidden p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
-          
-          {/* Brand Logo */}
-          <div className="w-8 h-8 rounded bg-[#3ecf8e] flex items-center justify-center font-extrabold text-sm text-black">
-            S
+
+          {/* Logotipo */}
+          <div className="flex items-center gap-2.5 select-none">
+            <div className="w-8 h-8 rounded-lg bg-[#8B1A2E] flex items-center justify-center font-extrabold text-sm text-white shadow-md shadow-[#8B1A2E]/40">
+              S
+            </div>
+            <div className="leading-none">
+              <div className="font-bold text-[15px] tracking-tight text-white">Sinnergie</div>
+              <div className="text-[10px] text-white/40 font-medium tracking-widest uppercase">CRM</div>
+            </div>
           </div>
-          <span className="font-bold text-lg tracking-tight select-none">Sinnergie</span>
-          <span className="bg-gray-800 text-[10px] px-2 py-0.5 rounded text-gray-400 font-mono ml-1.5 hidden sm:inline-block">v1.3</span>
         </div>
-        
-        {/* Right side status & action buttons */}
-        <div className="flex items-center gap-4 md:gap-6">
-          <div className="hidden sm:block text-right">
-            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Projeto Supabase</div>
-            <div className="text-xs font-mono text-[#3ecf8e] hover:underline cursor-pointer" onClick={() => setIsDbModalOpen(true)}>hjafwucsytjqsbszftyz</div>
-          </div>
-          
-          <div className="flex items-center gap-3 border-l border-gray-800 pl-4 md:pl-6">
-            <div 
-              onClick={() => setIsDbModalOpen(true)}
-              className="flex items-center gap-2 cursor-pointer bg-gray-900 hover:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-800 transition-colors animate-pulse"
-              title={dbStatus.usingFallback ? "Armazenando em Cache Local" : "Sincronizado com Supabase Cloud"}
-            >
-              <div className={`w-2 h-2 rounded-full ${dbStatus.usingFallback ? 'bg-amber-400' : 'bg-[#3ecf8e]'}`} />
-              <span className="text-[10px] font-mono font-medium text-gray-300 uppercase">
-                {dbStatus.usingFallback ? 'Cache Local' : 'Ao Vivo'}
-              </span>
-            </div>
-            
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Sair da plataforma"
-              className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#3ecf8e] to-emerald-400 flex items-center justify-center font-bold text-sm text-black select-none">
-              AD
-            </div>
+
+        {/* Lado direito */}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Sair da plataforma"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors text-xs font-medium cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
+          <div className="w-8 h-8 rounded-full bg-[#8B1A2E] flex items-center justify-center font-bold text-xs text-white select-none border border-[#B02542]/50">
+            AD
           </div>
         </div>
       </header>
 
-      {/* BODY WRAPPER */}
+      {/* ── BODY ───────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* CORES SIDEBAR CONTAINER */}
+
+        {/* ── SIDEBAR ──────────────────────────────────────────────────── */}
         <aside className={`
-          fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-30 transform transition-transform duration-300 md:relative md:translate-x-0 md:flex-shrink-0
+          fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-100 flex flex-col z-30 transform transition-transform duration-300
+          md:relative md:translate-x-0 md:flex-shrink-0
           ${isMobileMenuOpen ? 'translate-x-0 top-16' : '-translate-x-full md:translate-x-0'}
         `}>
-          {/* Sidebar Section Info */}
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Módulos Core</div>
-            <button 
+          {/* Cabeçalho da sidebar (mobile) */}
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between md:hidden">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Menu</span>
+            <button
               type="button"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="md:hidden text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+              className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Navigation panel */}
-          <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'dashboard' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <LayoutDashboard className="w-4 h-4 text-gray-400" /> Painel Geral
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('contatos')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'contatos' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Users className="w-4 h-4 text-gray-400" /> Contatos / CRM
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('pipeline')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'pipeline' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Flame className="w-4 h-4 text-gray-400" /> Pipeline Kanban
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('tarefas')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'tarefas' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <CheckSquare className="w-4 h-4 text-gray-400" /> Tarefas e Retornos
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('locacoes')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'locacoes' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Package className="w-4 h-4 text-gray-400" /> Locações de Máquinas
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePageNavigation('financeiro')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left cursor-pointer ${activePage === 'financeiro' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <BarChart2 className="w-4 h-4 text-gray-400" /> Gestão Financeira
-            </button>
+          {/* Navegação */}
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto pt-4">
+            {navItems.map(({ id, label, icon: Icon }) => {
+              const active = activePage === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handlePageNavigation(id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left cursor-pointer
+                    ${active
+                      ? 'bg-[#FBF0F2] text-[#8B1A2E] font-semibold'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                    }`}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#8B1A2E]' : 'text-gray-400'}`} />
+                  {label}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* Corporate branding links */}
-          <div className="p-4 border-t border-gray-100 space-y-2">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Configuração</div>
-            
-            {/* Theme Toggle Button */}
+          {/* Rodapé da sidebar */}
+          <div className="border-t border-gray-100 p-3 space-y-2">
+            {/* Indicador de conexão */}
+            <button
+              type="button"
+              onClick={() => setIsDbModalOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors hover:bg-gray-50 cursor-pointer"
+              title={dbStatus.usingFallback ? 'Cache local — clique para detalhes' : 'Conectado ao Supabase'}
+            >
+              {dbStatus.usingFallback
+                ? <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                : <Wifi className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              }
+              <span className={`font-medium ${dbStatus.usingFallback ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {dbStatus.usingFallback ? 'Cache Local' : 'Supabase Online'}
+              </span>
+            </button>
+
+            {/* Alternar tema */}
             <button
               type="button"
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="w-full flex items-center justify-between text-xs text-gray-600 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50/50 p-2.5 rounded-lg transition-colors border border-gray-100 cursor-pointer"
-              title="Alternar Tema (Modo Claro / Escuro)"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2">
-                {theme === 'light' ? (
-                  <>
-                    <Moon className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="font-semibold text-[11px] text-gray-700">Tema: Claro</span>
-                  </>
-                ) : (
-                  <>
-                    <Sun className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="font-semibold text-[11px] text-gray-100">Tema: Escuro</span>
-                  </>
-                )}
-              </div>
-              <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded uppercase font-mono tracking-wider font-semibold">Alternar</span>
+              {theme === 'light'
+                ? <Moon className="w-3.5 h-3.5 shrink-0" />
+                : <Sun className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              }
+              <span className="font-medium">{theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}</span>
             </button>
 
+            {/* Console Supabase */}
             <a
-              href="https://hjafwucsytjqsbszftyz.supabase.co" 
-              target="_blank" 
+              href="https://supabase.com/dashboard"
+              target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between text-xs text-gray-600 hover:text-emerald-700 bg-gray-50 hover:bg-emerald-50/50 p-2.5 rounded-lg transition-colors border border-gray-100"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
             >
-              <span className="font-semibold truncate text-[11px]">Console Supabase</span>
-              <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              <span className="font-medium">Console Supabase</span>
             </a>
-            <div className="text-[10px] text-gray-400 text-center font-medium pt-1">
+
+            {/* Limpar Base de Dados */}
+            <button
+              type="button"
+              onClick={() => setClearDbStep(1)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="font-medium">Limpar Base de Dados</span>
+            </button>
+
+            <div className="text-[10px] text-gray-300 text-center pt-1 font-medium">
               Sinnergie Aesthetic Technologies
             </div>
           </div>
         </aside>
 
-        {/* OVERLAY FOR MOBILE NAVIGATION MENU CLOSURES */}
+        {/* Overlay mobile */}
         {isMobileMenuOpen && (
-          <div 
+          <div
             onClick={() => setIsMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/40 z-20 md:hidden top-16"
           />
         )}
 
-        {/* CORE CONTENT RUNTIME CONTAINER */}
+        {/* ── CONTEÚDO PRINCIPAL ───────────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto px-5 py-6 md:p-8 w-full">
           <div className="max-w-6xl mx-auto">
             {loading ? (
               <div className="h-96 flex flex-col items-center justify-center space-y-4">
-                <div className="w-9 h-9 rounded-full border-4 border-gray-200 border-t-emerald-500 animate-spin" />
-                <p className="text-xs text-gray-500 tracking-wider font-semibold uppercase">Carregando Plataforma Sinnergie...</p>
+                <div className="w-9 h-9 rounded-full border-4 border-gray-200 border-t-[#8B1A2E] animate-spin" />
+                <p className="text-xs text-gray-400 tracking-wider font-semibold uppercase">Carregando Sinnergie CRM...</p>
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Navigational switcher container */}
                 {activePage === 'dashboard' && (
-                  <Dashboard 
-                    contatos={contatos} 
-                    tarefas={tarefas} 
-                    locacoes={locacoes} 
+                  <Dashboard
+                    contatos={contatos}
+                    tarefas={tarefas}
+                    locacoes={locacoes}
                     onNavigate={handlePageNavigation}
                     openDbModal={() => setIsDbModalOpen(true)}
                   />
                 )}
-
                 {activePage === 'contatos' && (
-                  <Contatos 
+                  <Contatos
                     contatos={contatos}
                     onSave={handleSaveContato}
                     onDelete={handleDeleteContato}
                     onBulkImport={handleBulkImportContatos}
                   />
                 )}
-
                 {activePage === 'pipeline' && (
-                  <Pipeline 
+                  <Pipeline
                     contatos={contatos}
                     onSave={handleSaveContato}
                     onNavigateToContacts={() => handlePageNavigation('contatos')}
                   />
                 )}
-
                 {activePage === 'tarefas' && (
-                  <Tarefas 
+                  <Tarefas
                     tarefas={tarefas}
                     onSave={handleSaveTarefa}
                     onDelete={handleDeleteTarefa}
                   />
                 )}
-
                 {activePage === 'locacoes' && (
-                  <Locacoes 
+                  <Locacoes
                     locacoes={locacoes}
                     onSave={handleSaveLocacao}
                     onDelete={handleDeleteLocacao}
                     onBulkImport={handleBulkImportLocacoes}
                   />
                 )}
-
                 {activePage === 'financeiro' && (
-                  <Financeiro 
+                  <Financeiro
                     locacoes={locacoes}
                     onSave={handleSaveLocacao}
                   />
@@ -437,7 +427,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* DIAGNOSTIC CONNECTION MODAL */}
+      {/* ── MODAL DIAGNÓSTICO SUPABASE ─────────────────────────────────── */}
       <DatabaseModal
         isOpen={isDbModalOpen}
         onClose={() => setIsDbModalOpen(false)}
@@ -445,7 +435,46 @@ export default function App() {
         onRefresh={checkConnectionAndLoad}
       />
 
-      {/* SYNC WARNING TOAST */}
+      {/* ── MODAL LIMPAR BASE DE DADOS ─────────────────────────────────── */}
+      {clearDbStep > 0 && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">
+                  {clearDbStep === 1 ? 'Limpar Base de Dados?' : 'Tem certeza absoluta?'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {clearDbStep === 1
+                    ? 'Todos os contatos, tarefas e locações serão removidos permanentemente.'
+                    : 'Esta ação é irreversível. Todos os dados serão apagados agora.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setClearDbStep(0)}
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => clearDbStep === 1 ? setClearDbStep(2) : handleClearAllData()}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors cursor-pointer"
+              >
+                {clearDbStep === 1 ? 'Continuar' : 'Apagar Tudo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ERRO DE SYNC ─────────────────────────────────────────── */}
       {syncWarning && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-amber-950 border border-amber-700 text-amber-200 text-xs px-5 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 font-medium max-w-sm text-center">
           <CloudOff className="w-4 h-4 text-amber-400 shrink-0" />

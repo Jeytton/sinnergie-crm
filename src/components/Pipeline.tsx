@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Contato } from '../types';
 import { geminiService } from '../geminiService';
 import { ArrowLeft, ArrowRight, MapPin, Eye, Edit2, X, Mail, Phone, Calendar, Tag, User, Sparkles, Loader2 } from 'lucide-react';
@@ -324,7 +324,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
               <button
                 type="button"
                 onClick={() => { setViewContact(null); openEdit(viewContact); setAiAnalysis(null); }}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-[#8B1A2E] hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
               >
                 <Edit2 className="w-3.5 h-3.5" /> Editar
               </button>
@@ -368,7 +368,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                   type="text"
                   value={editNome}
                   onChange={e => setEditNome(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -378,7 +378,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                     type="text"
                     value={editCidade}
                     onChange={e => setEditCidade(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -387,7 +387,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                     type="text"
                     value={editOrigem}
                     onChange={e => setEditOrigem(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
               </div>
@@ -396,7 +396,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                 <select
                   value={editStatus}
                   onChange={e => setEditStatus(e.target.value as Contato['status'])}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 cursor-pointer"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E] cursor-pointer"
                 >
                   <option value="cold">❄ Frio</option>
                   <option value="warm">⚡ Warm</option>
@@ -411,7 +411,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                   type="date"
                   value={editProxFollowUp}
                   onChange={e => setEditProxFollowUp(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                 />
               </div>
               <div>
@@ -420,7 +420,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                   rows={3}
                   value={editObservacoes}
                   onChange={e => setEditObservacoes(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 leading-relaxed resize-none"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E] leading-relaxed resize-none"
                 />
               </div>
             </div>
@@ -437,7 +437,7 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
                 type="button"
                 onClick={handleEditSave}
                 disabled={editSaving || !editNome.trim()}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                className="flex-1 py-2.5 bg-[#8B1A2E] hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
               >
                 {editSaving ? 'Salvando...' : 'Salvar Edições'}
               </button>

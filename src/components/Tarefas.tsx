@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Tarefa } from '../types';
 import { Plus, Trash2, Calendar, AlertTriangle, CheckCircle, Circle, Search, ShieldAlert } from 'lucide-react';
 
@@ -118,7 +118,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
             placeholder="Pesquisar em tarefas..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 pl-9 pr-4 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-emerald-500 transition-colors"
+            className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 pl-9 pr-4 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-[#8B1A2E] transition-colors"
           />
         </div>
 
@@ -255,7 +255,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
                     placeholder="E.g., Ligar para cobrar faturamento do Vectus"
                     value={titulo}
                     onChange={(e) => setTitulo(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -267,7 +267,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
                     required
                     value={vencimento}
                     onChange={(e) => setVencimento(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -277,7 +277,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
                   <select
                     value={prioridade}
                     onChange={(e) => setPrioridade(e.target.value as 'alta' | 'media' | 'baixa')}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 cursor-pointer"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E] cursor-pointer"
                   >
                     <option value="alta">🔴 Alta Urgência (Cobranças/Logística imediata)</option>
                     <option value="media">🟡 Média Urgência (Retornos comerciais)</option>
@@ -293,7 +293,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
                     placeholder="Adicione anotações sobre como abordar, telefones adicionais, observações importantes..."
                     value={descricao}
                     onChange={(e) => setDescricao(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 resize-none leading-relaxed"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E] resize-none leading-relaxed"
                   />
                 </div>
               </div>
@@ -309,7 +309,7 @@ export default function Tarefas({ tarefas, onSave, onDelete }: TarefasProps) {
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all cursor-pointer"
+                  className="w-1/2 py-2.5 px-4 bg-[#8B1A2E] hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all cursor-pointer"
                 >
                   Criar Tarefa
                 </button>

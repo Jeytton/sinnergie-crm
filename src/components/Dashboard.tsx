@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Contato, Tarefa, Locacao } from '../types';
 import { geminiService } from '../geminiService';
 import { Users, Flame, Zap, CheckSquare, Package, AlertTriangle, ArrowRight, DollarSign, BarChart2, FileText, Settings, Sparkles, Loader2 } from 'lucide-react';
@@ -134,7 +134,7 @@ export default function Dashboard({ contatos, tarefas, locacoes, onNavigate, ope
             type="button"
             onClick={handleGenerateSummary}
             disabled={aiLoading || !geminiService.isAvailable()}
-            className="flex items-center gap-2 text-xs bg-[#3ecf8e] hover:bg-emerald-400 disabled:bg-emerald-900 disabled:text-emerald-600 text-black font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+            className="flex items-center gap-2 text-xs bg-[#8B1A2E] hover:bg-[#6F1424] disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold px-3.5 py-2 rounded-xl transition-all cursor-pointer"
             title={!geminiService.isAvailable() ? 'Configure VITE_GEMINI_API_KEY no arquivo .env' : ''}
           >
             {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -351,7 +351,7 @@ export default function Dashboard({ contatos, tarefas, locacoes, onNavigate, ope
             <button 
               type="button" 
               onClick={() => onNavigate('pipeline')}
-              className="text-xs text-emerald-600 font-semibold hover:underline cursor-pointer"
+              className="text-xs text-[#8B1A2E] font-semibold hover:underline cursor-pointer"
             >
               Kanban Pipeline →
             </button>
@@ -415,7 +415,7 @@ export default function Dashboard({ contatos, tarefas, locacoes, onNavigate, ope
           <button 
             type="button" 
             onClick={() => onNavigate('locacoes')}
-            className="text-xs text-emerald-600 font-semibold hover:underline cursor-pointer"
+            className="text-xs text-[#8B1A2E] font-semibold hover:underline cursor-pointer"
           >
             Ver toda agenda →
           </button>

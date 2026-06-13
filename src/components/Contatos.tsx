@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Contato } from '../types';
 import { geminiService } from '../geminiService';
 import { Search, Plus, Trash2, Mail, Phone, MapPin, Tag, MessageSquare, Edit2, Check, X, ShieldAlert, Upload, Download, Sparkles, Loader2 } from 'lucide-react';
@@ -208,6 +208,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
     const idxEndereco = findHeaderIndex(['endereco', 'rua', 'address', 'localizacao', 'localidade']);
     const idxObservacoes = findHeaderIndex(['notas', 'observacoes', 'obs', 'comentarios', 'historico', 'notes', 'observacao']);
     const idxProxFollowUp = findHeaderIndex(['proxfollowup', 'followup', 'proximofollowup', 'retorno', 'proximaretorno', 'proximocontato']);
+    const idxOrigem = findHeaderIndex(['origem', 'source', 'canal', 'procedencia', 'indicacao']);
 
     const result: Partial<Contato>[] = [];
 
@@ -310,7 +311,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
         endereco: enderecoVal,
         observacoes: obsVal,
         prox_follow_up: formattedFollowUp,
-        origem: 'Importado CSV'
+        origem: getVal(idxOrigem) || 'Importado CSV'
       });
     }
 
@@ -321,10 +322,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    const processText = async (text: string) => {
       try {
         const parsed = parseCSV(text);
         if (parsed.length === 0) {
@@ -337,6 +335,22 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
       } catch (err) {
         console.error(err);
         showToast('Falha ao processar planilha CSV.');
+      }
+    };
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+      // If replacement chars appear, the file is likely Windows-1252 — re-read with latin1
+      if (text.includes('�')) {
+        const reader2 = new FileReader();
+        reader2.onload = async (e2) => {
+          await processText(e2.target?.result as string);
+        };
+        reader2.readAsText(file, 'ISO-8859-1');
+      } else {
+        await processText(text);
       }
     };
     reader.readAsText(file, 'UTF-8');
@@ -438,7 +452,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
               placeholder="Buscar por nome, email, telefone ou cidade..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 pl-10 pr-4 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-emerald-500 transition-colors font-sans"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 pl-10 pr-4 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-[#8B1A2E] transition-colors font-sans"
             />
           </div>
 
@@ -448,7 +462,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-l-lg py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-emerald-500"
+                className="w-full bg-gray-50 border border-gray-200 rounded-l-lg py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-[#8B1A2E]"
               >
                 <option value="Todos">Status (Todos)</option>
                 <option value="hot">🔥 Quente (Hot)</option>
@@ -464,7 +478,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
               <select
                 value={selectedOrigem}
                 onChange={(e) => setSelectedOrigem(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-emerald-500"
+                className="w-full bg-gray-50 border border-gray-200 py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-[#8B1A2E]"
               >
                 <option value="Todos">Origem (Indiferente)</option>
                 {origens.map((orig, idx) => (
@@ -478,7 +492,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
               <select
                 value={selectedCidade}
                 onChange={(e) => setSelectedCidade(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-r-lg py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-emerald-500"
+                className="w-full bg-gray-50 border border-gray-200 rounded-r-lg py-2 pl-3 pr-2 text-xs text-gray-800 outline-none cursor-pointer focus:border-[#8B1A2E]"
               >
                 <option value="Todos">Cidades (Todas)</option>
                 {cidades.map((cid, idx) => (
@@ -660,7 +674,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors cursor-pointer ${safePage === page ? 'bg-emerald-600 text-white' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                    className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors cursor-pointer ${safePage === page ? 'bg-[#8B1A2E] text-white' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'}`}
                   >
                     {page}
                   </button>
@@ -713,7 +727,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Clínica Bella Forma ou Dra. Carolina Matos"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -725,7 +739,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="lucas@clinica.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -735,7 +749,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="(41) 99888-1122"
                     value={telefone}
                     onChange={(e) => setTelefone(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -747,7 +761,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Curitiba, Londrina..."
                     value={cidade}
                     onChange={(e) => setCidade(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -757,7 +771,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="PR, SP, SC..."
                     value={estado}
                     onChange={(e) => setEstado(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -767,7 +781,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                   <select
                     value={origem}
                     onChange={(e) => setOrigem(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   >
                     <option value="Instagram">Instagram</option>
                     <option value="Indicação">Indicação</option>
@@ -782,7 +796,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                   <select
                     value={statusVal}
                     onChange={(e) => setStatusVal(e.target.value as Contato['status'])}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   >
                     <option value="hot">🔥 Quente (Forte de fechar locações)</option>
                     <option value="warm">⚡ Leve/Morno (Negociando e interessado)</option>
@@ -800,7 +814,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Clínica, Biomédico, Médico..."
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -810,7 +824,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Dermatologia, Estética, Cirurgia..."
                     value={especialidade}
                     onChange={(e) => setEspecialidade(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -822,7 +836,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Ultraformer MPT, Endolaser, Vectus..."
                     value={equipamentos}
                     onChange={(e) => setEquipamentos(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -832,7 +846,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="VIP, Esperando data, Alugou 3x..."
                     value={etiquetas}
                     onChange={(e) => setEtiquetas(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -844,7 +858,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Rua, Número, Bairro, CEP..."
                     value={endereco}
                     onChange={(e) => setEndereco(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -855,7 +869,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     type="date"
                     value={proxFollowUp}
                     onChange={(e) => setProxFollowUp(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3.5 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
 
@@ -867,7 +881,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                     placeholder="Adicione notas sobre as necessidades da doutora, qual máquina ela tem preferência, datas úteis..."
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500 leading-relaxed resize-none"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E] leading-relaxed resize-none"
                   />
                 </div>
               </div>
@@ -883,7 +897,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all cursor-pointer"
+                  className="w-1/2 py-2.5 px-4 bg-[#8B1A2E] hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all cursor-pointer"
                 >
                   {editingContato ? 'Salvar Edições' : 'Criar Registro'}
                 </button>
@@ -1004,7 +1018,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
               <button
                 type="button"
                 onClick={handleCsvSimulation}
-                className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white font-extrabold rounded-lg text-xs hover:bg-emerald-500 transition-colors cursor-pointer text-center"
+                className="w-2/3 py-2.5 px-3 bg-[#8B1A2E] text-white font-extrabold rounded-lg text-xs hover:bg-emerald-500 transition-colors cursor-pointer text-center"
               >
                 Carregamento Rápido de Teste (Amostra)
               </button>

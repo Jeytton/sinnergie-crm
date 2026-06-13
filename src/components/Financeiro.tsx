@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Locacao } from '../types';
 import { TrendingUp, DollarSign, FileText, CheckCircle2, Download, Printer } from 'lucide-react';
 
@@ -178,7 +178,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="2026">Ano 2026 (Corrente)</option>
               <option value="2025">Ano 2025</option>
@@ -189,7 +189,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Mês (Todos)</option>
               <option value="1">Janeiro</option>
@@ -211,7 +211,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
             <select
               value={selectedEq}
               onChange={(e) => setSelectedEq(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Equipamento (Todos)</option>
               {uniqueEqs.map((e, idx) => (
@@ -224,7 +224,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Cidades (Todas)</option>
               {uniqueCities.map((c, idx) => (
@@ -345,7 +345,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
                       {valueShortText}
                     </span>
                     <div 
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-t-md transition-all duration-500"
+                      className="w-full bg-[#8B1A2E] hover:bg-emerald-500 rounded-t-md transition-all duration-500"
                       style={{ height: `${percentHeight}%` }}
                     />
                     <span className="text-[10px] text-gray-600 mt-3.5 text-center font-bold truncate w-full" title={item.l}>
@@ -377,7 +377,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
                   </span>
                 )}
                 <div 
-                  className={`w-full rounded-t-sm transition-all duration-500 ${item.v > 0 ? 'bg-emerald-600 group-hover:bg-emerald-500' : 'bg-gray-100 h-1'}`}
+                  className={`w-full rounded-t-sm transition-all duration-500 ${item.v > 0 ? 'bg-[#8B1A2E] group-hover:bg-emerald-500' : 'bg-gray-100 h-1'}`}
                   style={{ height: item.v > 0 ? `${percentHeight}%` : '4px' }}
                 />
                 <span className="text-[9px] text-gray-500 mt-3 font-semibold">{item.l}</span>

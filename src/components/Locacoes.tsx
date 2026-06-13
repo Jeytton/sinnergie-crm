@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Locacao } from '../types';
 import { Search, Plus, Trash2, Calendar, FileText, Check, X, ShieldAlert, Upload, Download, ArrowRight, HelpCircle } from 'lucide-react';
 
@@ -411,7 +411,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
               placeholder="Pesquisar clínica, doutor, cidade..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 pl-9 pr-3 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-emerald-500 transition-colors"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2 pl-9 pr-3 text-gray-900 outline-none placeholder-gray-400 focus:bg-white focus:border-[#8B1A2E] transition-colors"
             />
           </div>
 
@@ -420,7 +420,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
             <select
               value={selectedEq}
               onChange={(e) => setSelectedEq(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Equipamento (Todos)</option>
               {uniqueEqs.map((e, idx) => (
@@ -434,7 +434,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Cidades (Todas)</option>
               {uniqueCities.map((c, idx) => (
@@ -448,7 +448,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 px-3 text-xs text-gray-900 outline-none cursor-pointer focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Etapa (Todas)</option>
               <option value="agendado">Agendado</option>
@@ -462,7 +462,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-lg py-2 pl-2 pr-1 text-[11px] text-[#252525] outline-none cursor-pointer focus:bg-white focus:border-emerald-500"
+              className="bg-gray-50 border border-gray-200 rounded-lg py-2 pl-2 pr-1 text-[11px] text-[#252525] outline-none cursor-pointer focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="Todos">Mês (Todos)</option>
               <option value="1">Jan</option>
@@ -482,7 +482,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-lg py-2 pl-2 pr-1 text-[11px] text-[#252525] outline-none cursor-pointer focus:bg-white focus:border-emerald-500"
+              className="bg-gray-50 border border-gray-200 rounded-lg py-2 pl-2 pr-1 text-[11px] text-[#252525] outline-none cursor-pointer focus:bg-white focus:border-[#8B1A2E]"
             >
               <option value="2026">2026</option>
               <option value="2025">2025</option>
@@ -630,7 +630,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`w-7 h-7 text-[10px] font-bold rounded-lg cursor-pointer ${safePage === page ? 'bg-emerald-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                    className={`w-7 h-7 text-[10px] font-bold rounded-lg cursor-pointer ${safePage === page ? 'bg-[#8B1A2E] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'}`}
                   >
                     {page}
                   </button>
@@ -701,7 +701,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     placeholder="E.g., Clínica Bella Forma"
                     value={cliente}
                     onChange={(e) => setCliente(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
                 <div>
@@ -711,7 +711,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     placeholder="Dra. Roberta Santos"
                     value={dra}
                     onChange={(e) => setDra(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   />
                 </div>
               </div>
@@ -723,7 +723,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   <select
                     value={equipamento}
                     onChange={(e) => handleEqChange(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                    className="w-full bg-gray-50 border border-gray-205 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                   >
                     <option value="Ultraformer III">Ultraformer III</option>
                     <option value="Ultraformer MPT">Ultraformer MPT</option>
@@ -863,7 +863,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   placeholder="Se necessário, forneça informações para entrega como sala, telefone de contato alternativo ou restrições de horários."
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-202 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-emerald-500"
+                  className="w-full bg-gray-50 border border-gray-202 rounded-lg text-xs py-2 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]"
                 />
               </div>
 
@@ -878,7 +878,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer text-center"
+                  className="w-1/2 py-2.5 px-4 bg-[#8B1A2E] hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer text-center"
                 >
                   Registrar Diária
                 </button>
@@ -957,7 +957,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
               <button
                 type="button"
                 onClick={handleCsvSimulation}
-                className="w-2/3 py-2.5 px-3 bg-emerald-600 text-white font-extrabold rounded-lg text-xs hover:bg-emerald-500 transition-colors cursor-pointer text-center"
+                className="w-2/3 py-2.5 px-3 bg-[#8B1A2E] text-white font-extrabold rounded-lg text-xs hover:bg-emerald-500 transition-colors cursor-pointer text-center"
               >
                 Carregamento Rápido de Teste (Amostra)
               </button>

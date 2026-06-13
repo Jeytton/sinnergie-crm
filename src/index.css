@@ -124,18 +124,28 @@ body {
   background-color: #27272a !important;
 }
 
-/* Active sidebar menu & badges */
+/* Active sidebar menu & badges (bordeaux tone in dark) */
 .dark .bg-emerald-50 {
-  background-color: #064e3b !important;
-  color: #3ecf8e !important;
+  background-color: #1a0008 !important;
+  color: #e07090 !important;
 }
 
 .dark .text-emerald-700 {
-  color: #3ecf8e !important;
+  color: #e07090 !important;
 }
 
-.dark .bg-emerald-50/50 {
-  background-color: #022c22 !important;
+.dark .bg-emerald-50\/50 {
+  background-color: #150005 !important;
+}
+
+/* Sidebar active state bordeaux */
+.dark [class*="bg-\[#FBF0F2\]"] {
+  background-color: #1a0008 !important;
+}
+
+/* Loading spinner bordeaux */
+.dark .border-t-\[#8B1A2E\] {
+  border-top-color: #B02542 !important;
 }
 
 .dark .bg-gray-100,

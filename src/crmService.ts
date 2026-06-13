@@ -430,5 +430,24 @@ CREATE INDEX IF NOT EXISTS idx_tarefas_vencimento ON tarefas(vencimento);
       imported.push(item);
     }
     return imported;
+  },
+
+  async clearAllData(usingFallback: boolean): Promise<boolean> {
+    localStorage.removeItem('sinnergie_contatos');
+    localStorage.removeItem('sinnergie_tarefas');
+    localStorage.removeItem('sinnergie_locacoes');
+
+    if (!usingFallback) {
+      try {
+        await supabase.from('contatos').delete().neq('id', '');
+        await supabase.from('tarefas').delete().neq('id', '');
+        await supabase.from('locacoes').delete().neq('id', '');
+      } catch (err) {
+        console.error('Erro ao limpar dados no Supabase', err);
+        return false;
+      }
+    }
+
+    return true;
   }
 };

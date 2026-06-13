@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { SupabaseConfigStatus } from '../types';
 import { crmService } from '../crmService';
 import { Check, AlertTriangle, Database, Copy, RefreshCw } from 'lucide-react';
@@ -173,7 +173,7 @@ export default function DatabaseModal({ isOpen, onClose, status, onRefresh }: Da
           <button 
             type="button" 
             onClick={onClose}
-            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all cursor-pointer text-center"
+            className="w-full py-2.5 px-4 bg-[#8B1A2E] hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all cursor-pointer text-center"
           >
             Entendido, Retornar ao CRM
           </button>
