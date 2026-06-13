@@ -4,7 +4,14 @@ import { X, Send, Sparkles, Loader2, Bot, RefreshCw } from 'lucide-react';
 import { Contato, Tarefa, Locacao } from '../types';
 
 // Leitura da chave no nível de módulo (resolvida pelo Vite em build time)
-const _apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const _rawKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+console.log('[Sinnergie AI] VITE_GEMINI_API_KEY status:', _rawKey ? `presente (${_rawKey.length} chars)` : 'AUSENTE / undefined');
+
+// Validação permissiva: chave precisa existir, não ser string vazia, não ser placeholder
+const _apiKey = (_rawKey && _rawKey.trim() !== '' && _rawKey !== 'undefined' && !_rawKey.includes('AQUI'))
+  ? _rawKey.trim()
+  : undefined;
+
 const _ai = _apiKey ? new GoogleGenAI({ apiKey: _apiKey }) : null;
 
 interface AiAssistantProps {
@@ -258,7 +265,7 @@ ${pendentes.slice(0, 20).map(t =>
       setMessages(prev => [
         ...prev,
         { role: 'user', content: text, timestamp: new Date() },
-        { role: 'assistant', content: 'A chave VITE_GEMINI_API_KEY não está configurada corretamente no arquivo .env.', timestamp: new Date() },
+        { role: 'assistant', content: `A chave VITE_GEMINI_API_KEY não está disponível neste ambiente.\n\nSe você está em **produção (Vercel)**: vá em Settings → Environment Variables, adicione VITE_GEMINI_API_KEY e faça um **novo deploy** (o Vite substitui a chave em build time).\n\nSe está em **local**: verifique o arquivo .env e reinicie o servidor (npm run dev).`, timestamp: new Date() },
       ]);
       return;
     }
