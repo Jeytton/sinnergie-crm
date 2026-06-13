@@ -2,6 +2,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { X, Send, Sparkles, Loader2, Bot, RefreshCw } from 'lucide-react';
 import { Contato, Tarefa, Locacao } from '../types';
+import { listAvailableModels } from '../utils/listModels';
 
 // Leitura da chave no nível de módulo (resolvida pelo Vite em build time)
 const _rawKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
@@ -130,6 +131,9 @@ export default function AiAssistant({ contatos, tarefas, locacoes, onCreateLocac
 
   const apiKey = _apiKey;
   const ai = _ai;
+
+  // Roda uma vez na montagem para descobrir quais modelos estão disponíveis
+  useEffect(() => { listAvailableModels(); }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
