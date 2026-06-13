@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
-import { MessageSquare, X, Send, Sparkles, Loader2, Bot, RefreshCw } from 'lucide-react';
+import { X, Send, Sparkles, Loader2, Bot, RefreshCw } from 'lucide-react';
 import { Contato, Tarefa, Locacao } from '../types';
+
+// Leitura da chave no nível de módulo (resolvida pelo Vite em build time)
+const _apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const _ai = _apiKey ? new GoogleGenAI({ apiKey: _apiKey }) : null;
 
 interface AiAssistantProps {
   contatos: Contato[];
@@ -117,8 +121,8 @@ export default function AiAssistant({ contatos, tarefas, locacoes, onCreateLocac
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-  const ai = apiKey && !apiKey.includes('AQUI') ? new GoogleGenAI({ apiKey }) : null;
+  const apiKey = _apiKey;
+  const ai = _ai;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
