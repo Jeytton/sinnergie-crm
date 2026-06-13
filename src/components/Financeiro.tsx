@@ -41,10 +41,18 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
   const totalCount = filteredLocs.length;
   const ticketMedio = totalCount > 0 ? Math.round(totalRevenue / totalCount) : 0;
 
-  // Pending NFs for the select period
-  const pendingNfList = filteredLocs.filter(l => !l.nf_emitida);
+  // Helper: get effective nf_status (backward compat with old boolean)
+  const getNfStatus = (l: typeof filteredLocs[0]) =>
+    l.nf_status ?? (l.nf_emitida ? 'emitida' : 'pendente');
+
+  // Pending NFs: only status === 'pendente' (not nao_requer)
+  const pendingNfList = filteredLocs.filter(l => getNfStatus(l) === 'pendente');
   const pendingNfsCount = pendingNfList.length;
   const pendingNfsVolume = pendingNfList.reduce((sum, item) => sum + item.valor_final, 0);
+
+  // Não requer NF (dinheiro / Pix PF)
+  const naoRequerList = filteredLocs.filter(l => getNfStatus(l) === 'nao_requer');
+  const naoRequerVolume = naoRequerList.reduce((sum, item) => sum + item.valor_final, 0);
 
   // Group by Equipment for Bar Charts
   const eqGroup: Record<string, number> = {};
@@ -98,7 +106,11 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
   const highestCustomerValue = topCustomers[0]?.v || 1;
 
   const markNfAsEmitted = async (rental: Locacao) => {
-    await onSave({ ...rental, nf_emitida: true });
+    await onSave({ ...rental, nf_emitida: true, nf_status: 'emitida' });
+  };
+
+  const markNaoRequer = async (rental: Locacao) => {
+    await onSave({ ...rental, nf_emitida: false, nf_status: 'nao_requer' });
   };
 
   const exportCSV = () => {
@@ -294,7 +306,7 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
       </div>
 
       {/* KPI Dashboard Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-gray-200 shadow-xs rounded-xl p-4.5 flex items-start gap-3.5">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0 mt-0.5 border border-emerald-100">
             <DollarSign className="w-5 h-5" />
@@ -342,8 +354,21 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
             <h4 className="text-xl font-bold text-gray-900">
               {pendingNfsCount}
             </h4>
-            <span className="block text-xs text-gray-555 mt-0.5 font-medium">NF Pendentes</span>
+            <span className="block text-xs text-gray-555 mt-0.5 font-medium">⏳ NF Pendentes</span>
             <span className="block text-[10px] text-amber-700 font-semibold mt-0.5">R$ {pendingNfsVolume.toLocaleString('pt-BR')} em aberto</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 shadow-xs rounded-xl p-4.5 flex items-start gap-3.5">
+          <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 flex-shrink-0 mt-0.5 border border-gray-200 text-sm font-bold">
+            🚫
+          </div>
+          <div>
+            <h4 className="text-xl font-bold text-gray-900">
+              {naoRequerList.length}
+            </h4>
+            <span className="block text-xs text-gray-500 mt-0.5 font-medium">Não requer NF</span>
+            <span className="block text-[10px] text-gray-500 font-semibold mt-0.5">R$ {naoRequerVolume.toLocaleString('pt-BR')} Dinheiro/Pix PF</span>
           </div>
         </div>
       </div>
@@ -506,13 +531,22 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
                     <span className="font-bold text-xs text-emerald-800 font-mono">
                       R$ {item.valor_final.toLocaleString('pt-BR')}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => markNfAsEmitted(item)}
-                      className="bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-[10px] text-emerald-700 font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer"
-                    >
-                      Marcar Emitida
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => markNfAsEmitted(item)}
+                        className="bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-[10px] text-emerald-700 font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer"
+                      >
+                        ✅ Marcar Emitida
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => markNaoRequer(item)}
+                        className="bg-gray-50 border border-gray-200 hover:bg-gray-100 text-[10px] text-gray-500 font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer"
+                      >
+                        🚫 Não requer NF
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

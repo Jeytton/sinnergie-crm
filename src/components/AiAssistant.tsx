@@ -96,14 +96,14 @@ const TOOL_DECLS = [
   },
   {
     name: 'update_nf_status',
-    description: 'Marca NF de uma locação como emitida ou pendente',
+    description: 'Altera status de NF de uma locação: emitida, pendente ou nao_requer',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        locacao_id: { type: Type.STRING,  description: 'ID da locação (campo id)' },
-        emitida:    { type: Type.BOOLEAN, description: 'true = NF emitida, false = pendente' },
+        locacao_id: { type: Type.STRING, description: 'ID da locação (campo id)' },
+        nf_status:  { type: Type.STRING, description: '"emitida" | "pendente" | "nao_requer" (dinheiro/Pix PF)' },
       },
-      required: ['locacao_id', 'emitida'],
+      required: ['locacao_id', 'nf_status'],
     },
   },
   {
@@ -158,7 +158,9 @@ export default function AiAssistant({ contatos, tarefas, locacoes, onCreateLocac
     const doMes = concluidas.filter(l => l.data.startsWith(mesAtual));
     const receitaMes = doMes.reduce((s, l) => s + l.valor_final, 0);
     const receitaTotal = concluidas.reduce((s, l) => s + l.valor_final, 0);
-    const nfPendentes = locacoes.filter(l => !l.nf_emitida && l.status === 'concluido');
+    const getNfSt = (l: Locacao) => l.nf_status ?? (l.nf_emitida ? 'emitida' : 'pendente');
+    const nfPendentes = locacoes.filter(l => l.status === 'concluido' && getNfSt(l) === 'pendente');
+    const nfNaoRequer = locacoes.filter(l => l.status === 'concluido' && getNfSt(l) === 'nao_requer');
     const pendentes = tarefas.filter(t => t.status === 'pendente');
     const atrasadas = pendentes.filter(t => t.vencimento < today);
 
@@ -178,7 +180,8 @@ DATA ATUAL: ${today}
 RESUMO EXECUTIVO:
 - Receita do mês (${mesAtual}): R$ ${receitaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - Receita total (concluídas): R$ ${receitaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- NFs pendentes de emissão: ${nfPendentes.length}
+- NFs pendentes de emissão: ${nfPendentes.length} (precisam de nota fiscal)
+- Não requer NF (dinheiro/Pix PF): ${nfNaoRequer.length} (resolvidas, sem nota)
 - Tarefas pendentes: ${pendentes.length} (${atrasadas.length} em atraso)
 - Total de contatos: ${contatos.length}
 - Total de locações: ${locacoes.length}
@@ -248,8 +251,10 @@ ${pendentes.slice(0, 20).map(t =>
       }
 
       if (name === 'update_nf_status') {
-        await onUpdateLocacao(args.locacao_id, { nf_emitida: args.emitida });
-        return { ok: true, msg: `NF ${args.emitida ? 'marcada como emitida' : 'marcada como pendente'}`, data: { id: args.locacao_id, nf_emitida: args.emitida } };
+        const ns = (args.nf_status || 'pendente') as 'emitida' | 'pendente' | 'nao_requer';
+        await onUpdateLocacao(args.locacao_id, { nf_status: ns, nf_emitida: ns === 'emitida' });
+        const labels: Record<string, string> = { emitida: 'emitida ✅', pendente: 'pendente ⏳', nao_requer: 'não requer NF 🚫' };
+        return { ok: true, msg: `NF marcada como ${labels[ns] || ns}`, data: { id: args.locacao_id, nf_status: ns } };
       }
 
       if (name === 'update_locacao_status') {

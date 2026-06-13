@@ -36,7 +36,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [deslocamento, setDeslocamento] = useState<number>(150);
   const [valorLocacao, setValorLocacao] = useState<number>(0);
   const [valorFinal, setValorFinal] = useState<number>(1350);
-  const [nfEmitida, setNfEmitida] = useState(false);
+  const [nfStatus, setNfStatus] = useState<'pendente' | 'emitida' | 'nao_requer'>('pendente');
+  const [nfDropdownId, setNfDropdownId] = useState<string | null>(null);
   const [locacaoStatus, setLocacaoStatus] = useState<'agendado' | 'concluido' | 'cancelado'>('agendado');
   const [observacoes, setObservacoes] = useState('');
 
@@ -96,7 +97,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setMaoDeObra(loc.mao_de_obra);
     setDeslocamento(loc.deslocamento);
     setValorLocacao(loc.valor_locacao);
-    setNfEmitida(loc.nf_emitida);
+    setNfStatus(loc.nf_status ?? (loc.nf_emitida ? 'emitida' : 'pendente'));
     setLocacaoStatus(loc.status);
     setObservacoes(loc.observacoes || '');
     setIsCreateOpen(true);
@@ -106,7 +107,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setEditingLocacao(null);
     setCliente(''); setDra(''); setCidade('');
     setMaoDeObra(0); setDeslocamento(150); setValorLocacao(0);
-    setNfEmitida(false); setObservacoes('');
+    setNfStatus('pendente'); setObservacoes('');
     setData(new Date().toISOString().split('T')[0]);
     setHorario('09:00');
     setEquipamento('Ultraformer III');
@@ -127,7 +128,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
       deslocamento: Number(deslocamento),
       valor_locacao: Number(valorLocacao),
       valor_final: valorFinal,
-      nf_emitida: nfEmitida,
+      nf_status: nfStatus,
+      nf_emitida: nfStatus === 'emitida',
       status: locacaoStatus,
       observacoes
     });
@@ -137,12 +139,14 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     resetForm();
   };
 
-  const toggleNfEmitida = async (rental: Locacao) => {
-    await onSave({
-      ...rental,
-      nf_emitida: !rental.nf_emitida
-    });
-    showToast(`Status da NF de ${rental.cliente} alterado!`);
+  const getNfStatus = (rental: Locacao): 'pendente' | 'emitida' | 'nao_requer' =>
+    rental.nf_status ?? (rental.nf_emitida ? 'emitida' : 'pendente');
+
+  const changeNfStatus = async (rental: Locacao, next: 'pendente' | 'emitida' | 'nao_requer') => {
+    setNfDropdownId(null);
+    await onSave({ ...rental, nf_status: next, nf_emitida: next === 'emitida' });
+    const labels = { pendente: 'Pendente', emitida: 'Emitida', nao_requer: 'Não requer NF' };
+    showToast(`NF de ${rental.cliente} → ${labels[next]}`);
   };
 
   const handleStatusChange = async (rental: Locacao, nextStatus: Locacao['status']) => {
@@ -213,8 +217,15 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
         valorFinalVal = baseComp + maoDeObraVal + deslocamentoVal + valorLocacaoVal;
       }
       
-      const nfEmitidaVal = String(row.nf_emitida || '').toLowerCase();
-      const isNfEmitida = nfEmitidaVal === 'sim' || nfEmitidaVal === 'true' || nfEmitidaVal === 's' || nfEmitidaVal === '1';
+      // nf_status: aceita campo novo ou legado nf_emitida
+      const rawNfStatus = String(row.nf_status || row.nf_emitida || '').toLowerCase().trim();
+      let resolvedNfStatus: 'pendente' | 'emitida' | 'nao_requer' = 'pendente';
+      if (['sim', 's', 'true', '1', 'emitida', 'emitido'].includes(rawNfStatus)) {
+        resolvedNfStatus = 'emitida';
+      } else if (['nao_requer', 'nao requer', 'dinheiro', 'pix', 'pf', 'pessoa fisica', 'pessoa_fisica'].includes(rawNfStatus)) {
+        resolvedNfStatus = 'nao_requer';
+      }
+      const isNfEmitida = resolvedNfStatus === 'emitida';
       
       let statusVal = String(row.status || 'agendado').toLowerCase();
       if (statusVal.includes('concl')) statusVal = 'concluido';
@@ -251,6 +262,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
           valor_locacao: valorLocacaoVal,
           valor_final: Math.round(valorFinalVal),
           nf_emitida: isNfEmitida,
+          nf_status: resolvedNfStatus,
           status: statusVal as 'agendado' | 'concluido' | 'cancelado',
           observacoes: obsVal
         });
@@ -289,8 +301,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   // Seed data simulation (clean user request option)
   const handleCsvSimulation = async () => {
     const sampleRows: Partial<Locacao>[] = [
-      { data: '2026-06-18', horario: '10:00', cliente: 'Clínica Dermos Exemplo', dra: 'Dra. Luana Rocha', equipamento: 'Ultraformer MPT', cidade: 'Maringá', base_calculo_tipo: 'disparos', base_calculo_valor: 1000, mao_de_obra: 0, deslocamento: 150, valor_final: 1300, nf_emitida: false, status: 'agendado', observacoes: 'Exemplo simulado de importação' },
-      { data: '2026-06-19', horario: '14:00', cliente: 'Estética Slim Exemplo', dra: 'Dra. Giele', equipamento: 'CO2 Fracionado', cidade: 'Londrina', base_calculo_tipo: 'horas', base_calculo_valor: 500, mao_de_obra: 0, deslocamento: 150, valor_final: 650, nf_emitida: true, status: 'agendado', observacoes: 'Exemplo simulado de importação' },
+      { data: '2026-06-18', horario: '10:00', cliente: 'Clínica Dermos Exemplo', dra: 'Dra. Luana Rocha', equipamento: 'Ultraformer MPT', cidade: 'Maringá', base_calculo_tipo: 'disparos', base_calculo_valor: 1000, mao_de_obra: 0, deslocamento: 150, valor_final: 1300, nf_emitida: false, nf_status: 'pendente', status: 'agendado', observacoes: 'Exemplo simulado de importação' },
+      { data: '2026-06-19', horario: '14:00', cliente: 'Estética Slim Exemplo', dra: 'Dra. Giele', equipamento: 'CO2 Fracionado', cidade: 'Londrina', base_calculo_tipo: 'horas', base_calculo_valor: 500, mao_de_obra: 0, deslocamento: 150, valor_final: 650, nf_emitida: true, nf_status: 'emitida', status: 'agendado', observacoes: 'Exemplo simulado de importação' },
     ];
 
     await onBulkImport(sampleRows);
@@ -360,9 +372,9 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
 
   const agendadasCount = filtered.filter(l => l.status === 'agendado').length;
 
-  const pendingNFsCount = filtered.filter(l => l.status === 'concluido' && !l.nf_emitida).length;
+  const pendingNFsCount = filtered.filter(l => l.status === 'concluido' && getNfStatus(l) === 'pendente').length;
   const pendingNFsVolume = filtered
-    .filter(l => l.status === 'concluido' && !l.nf_emitida)
+    .filter(l => l.status === 'concluido' && getNfStatus(l) === 'pendente')
     .reduce((acc, curr) => acc + curr.valor_final, 0);
 
   return (
@@ -572,15 +584,34 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-700 font-mono whitespace-nowrap">
                       R$ {item.valor_final.toLocaleString('pt-BR')}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => toggleNfEmitida(item)}
-                        className={`text-md mx-auto transition-all cursor-pointer ${item.nf_emitida ? 'text-emerald-500 scale-110' : 'text-gray-300 hover:text-emerald-500'}`}
-                        title={item.nf_emitida ? 'NF Emitida! Clique para marcar pendente' : 'Marcar como NF Emitida'}
-                      >
-                        {item.nf_emitida ? '✔' : '✖'}
-                      </button>
+                    <td className="py-3.5 px-4 text-center relative">
+                      {(() => {
+                        const ns = getNfStatus(item);
+                        const isOpen = nfDropdownId === item.id;
+                        return (
+                          <div className="relative inline-block">
+                            <button type="button" onClick={() => setNfDropdownId(isOpen ? null : item.id)}
+                              className={`text-[10px] font-bold border px-2 py-0.5 rounded-full cursor-pointer transition-colors whitespace-nowrap ${
+                                ns === 'emitida' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : ns === 'nao_requer' ? 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                              }`}>
+                              {ns === 'emitida' ? '✅ Emitida' : ns === 'nao_requer' ? '🚫 Não req.' : '⏳ Pendente'}
+                            </button>
+                            {isOpen && (
+                              <div className="absolute z-20 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[170px] overflow-hidden">
+                                {(['pendente', 'emitida', 'nao_requer'] as const).map(opt => (
+                                  <button key={opt} type="button"
+                                    onClick={() => changeNfStatus(item, opt)}
+                                    className={`w-full text-left px-3 py-2 text-[11px] font-semibold hover:bg-gray-50 cursor-pointer flex items-center gap-2 ${ns === opt ? 'text-[#8B1A2E] bg-[#FBF0F2]' : 'text-gray-700'}`}>
+                                    {opt === 'emitida' ? '✅ NF Emitida' : opt === 'nao_requer' ? '🚫 Não requer NF' : '⏳ NF Pendente'}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       {item.status === 'agendado' && (
@@ -870,16 +901,14 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   </select>
                 </div>
 
-                <div className="flex items-end pl-1 pb-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700 select-none font-bold">
-                    <input
-                      type="checkbox"
-                      checked={nfEmitida}
-                      onChange={(e) => setNfEmitida(e.target.checked)}
-                      className="accent-emerald-600 w-4.5 h-4.5 border-gray-200 rounded"
-                    />
-                    Nota Fiscal (NF-e) já Emitida
-                  </label>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status da Nota Fiscal</label>
+                  <select value={nfStatus} onChange={e => setNfStatus(e.target.value as any)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg text-xs py-2.5 px-3 text-gray-900 outline-none focus:bg-white focus:border-[#8B1A2E]">
+                    <option value="pendente">⏳ NF Pendente — emitir em breve</option>
+                    <option value="emitida">✅ NF Emitida — nota já enviada</option>
+                    <option value="nao_requer">🚫 Não requer NF — Dinheiro / Pix PF</option>
+                  </select>
                 </div>
               </div>
 

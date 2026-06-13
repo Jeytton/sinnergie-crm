@@ -44,6 +44,7 @@ export interface Locacao {
   valor_locacao: number;
   valor_final: number;
   nf_emitida: boolean;
+  nf_status?: 'pendente' | 'emitida' | 'nao_requer';
   status: 'agendado' | 'concluido' | 'cancelado';
   observacoes: string;
   created_at?: string;

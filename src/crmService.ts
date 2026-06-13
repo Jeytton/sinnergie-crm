@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS locacoes (
   valor_locacao REAL DEFAULT 0,
   valor_final REAL NOT NULL,
   nf_emitida BOOLEAN DEFAULT false,
+  nf_status TEXT DEFAULT 'pendente',
   status TEXT DEFAULT 'agendado',
   observacoes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
@@ -160,6 +161,10 @@ CREATE TABLE IF NOT EXISTS locacoes (
 
 ALTER TABLE locacoes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Permitir tudo para chave Anonimous" ON locacoes FOR ALL USING (true) WITH CHECK (true);
+
+-- Migration para adicionar nf_status em banco existente:
+-- ALTER TABLE locacoes ADD COLUMN IF NOT EXISTS nf_status TEXT DEFAULT 'pendente';
+-- UPDATE locacoes SET nf_status = CASE WHEN nf_emitida = true THEN 'emitida' ELSE 'pendente' END WHERE nf_status IS NULL;
 
 -- 4. Índices para otimizar filtros e buscas
 CREATE INDEX IF NOT EXISTS idx_contatos_status ON contatos(status);
@@ -332,6 +337,12 @@ CREATE INDEX IF NOT EXISTS idx_tarefas_vencimento ON tarefas(vencimento);
   // ── LOCACOES CRUD ────────────────────────────────────────────────────────
 
   async listLocacoes(usingFallback: boolean): Promise<Locacao[]> {
+    const normalize = (rows: Locacao[]): Locacao[] =>
+      rows.map(l => ({
+        ...l,
+        nf_status: l.nf_status ?? (l.nf_emitida ? 'emitida' : 'pendente'),
+      }));
+
     if (!usingFallback) {
       try {
         const { data, error } = await supabase
@@ -339,18 +350,25 @@ CREATE INDEX IF NOT EXISTS idx_tarefas_vencimento ON tarefas(vencimento);
           .select('*')
           .order('data', { ascending: false });
         if (!error && data) {
-          setLocal('sinnergie_locacoes', data);
-          return data as Locacao[];
+          const normalized = normalize(data as Locacao[]);
+          setLocal('sinnergie_locacoes', normalized);
+          return normalized;
         }
       } catch (err) {
         console.error('Supabase fetch locacoes failed, falling back to offline cache', err);
       }
     }
-    return getLocal<Locacao>('sinnergie_locacoes', DEFAULT_LOCACOES);
+    return normalize(getLocal<Locacao>('sinnergie_locacoes', DEFAULT_LOCACOES));
   },
 
   async saveLocacao(locacao: Partial<Locacao>, usingFallback: boolean): Promise<SaveResult<Locacao>> {
     const isNew = !locacao.id;
+
+    // Derive nf_status from nf_emitida if not explicitly set, and keep both in sync
+    const nfStatus: Locacao['nf_status'] = locacao.nf_status
+      ?? (locacao.nf_emitida ? 'emitida' : 'pendente');
+    const nfEmitida = nfStatus === 'emitida';
+
     const item: Locacao = {
       id: locacao.id || generateUUID(),
       data: locacao.data || new Date().toISOString().split('T')[0],
@@ -365,7 +383,8 @@ CREATE INDEX IF NOT EXISTS idx_tarefas_vencimento ON tarefas(vencimento);
       deslocamento: Number(locacao.deslocamento) || 0,
       valor_locacao: Number(locacao.valor_locacao) || 0,
       valor_final: Number(locacao.valor_final) || 0,
-      nf_emitida: !!locacao.nf_emitida,
+      nf_emitida: nfEmitida,
+      nf_status: nfStatus,
       status: locacao.status || 'agendado',
       observacoes: locacao.observacoes || '',
       created_at: locacao.created_at || new Date().toISOString()

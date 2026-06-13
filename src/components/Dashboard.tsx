@@ -50,8 +50,10 @@ export default function Dashboard({ contatos, tarefas, locacoes, onNavigate, ope
     .filter(l => l.data.startsWith(currentYear))
     .reduce((acc, curr) => acc + curr.valor_final, 0);
 
-  // Pending NFs
-  const pendingNFsCount = completedRentals.filter(l => !l.nf_emitida).length;
+  // Pending NFs — only status 'pendente', excluding 'nao_requer'
+  const pendingNFsCount = completedRentals.filter(l =>
+    (l.nf_status ?? (l.nf_emitida ? 'emitida' : 'pendente')) === 'pendente'
+  ).length;
 
   // Equipment Stats (Real analysis based on rentals frequency)
   const ultraCount = locacoes.filter(l => l.equipamento === 'Ultraformer III').length;
