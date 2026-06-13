@@ -8,6 +8,7 @@ import Tarefas from './components/Tarefas';
 import Locacoes from './components/Locacoes';
 import Financeiro from './components/Financeiro';
 import WhatsApp from './components/WhatsApp';
+import Fechamento from './components/Fechamento';
 import DatabaseModal from './components/DatabaseModal';
 import Login from './components/Login';
 import AiAssistant from './components/AiAssistant';
@@ -30,7 +31,8 @@ import {
   AlertTriangle,
   Wifi,
   WifiOff,
-  MessageCircle
+  MessageCircle,
+  Calculator
 } from 'lucide-react';
 
 function checkStoredAuth(): boolean {
@@ -216,6 +218,7 @@ export default function App() {
     { id: 'locacoes', label: 'Locações de Máquinas', icon: Package },
     { id: 'financeiro', label: 'Gestão Financeira', icon: BarChart2 },
     { id: 'whatsapp', label: 'WhatsApp Marketing', icon: MessageCircle },
+    { id: 'fechamento', label: 'Fechamento', icon: Calculator },
   ];
 
   return (
@@ -428,6 +431,9 @@ export default function App() {
                 )}
                 {activePage === 'whatsapp' && (
                   <WhatsApp contatos={contatos} />
+                )}
+                {activePage === 'fechamento' && (
+                  <Fechamento locacoes={locacoes} />
                 )}
               </div>
             )}
