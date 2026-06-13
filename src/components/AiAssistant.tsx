@@ -281,7 +281,7 @@ ${pendentes.slice(0, 20).map(t =>
 
     try {
       let response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-1.5-flash-latest',
         contents,
         tools: [{ functionDeclarations: TOOL_DECLS }],
         config: { systemInstruction },
@@ -305,7 +305,7 @@ ${pendentes.slice(0, 20).map(t =>
         };
 
         const response2 = await ai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-1.5-flash-latest',
           contents: [...contents, modelTurn, funcResponseTurn],
           config: { systemInstruction },
         });

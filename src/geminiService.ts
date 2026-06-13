@@ -1,10 +1,10 @@
-import { GoogleGenAI } from '@google/genai';
+﻿import { GoogleGenAI } from '@google/genai';
 import { Contato, Tarefa, Locacao } from './types';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-const MODEL = 'gemini-1.5-flash';
+const MODEL = 'gemini-1.5-flash-latest';
 
 async function generate(prompt: string): Promise<string> {
   if (!ai) throw new Error('VITE_GEMINI_API_KEY não configurada no arquivo .env');
