@@ -7,6 +7,7 @@ import Pipeline from './components/Pipeline';
 import Tarefas from './components/Tarefas';
 import Locacoes from './components/Locacoes';
 import Financeiro from './components/Financeiro';
+import WhatsApp from './components/WhatsApp';
 import DatabaseModal from './components/DatabaseModal';
 import Login from './components/Login';
 import AiAssistant from './components/AiAssistant';
@@ -28,7 +29,8 @@ import {
   Trash2,
   AlertTriangle,
   Wifi,
-  WifiOff
+  WifiOff,
+  MessageCircle
 } from 'lucide-react';
 
 function checkStoredAuth(): boolean {
@@ -213,6 +215,7 @@ export default function App() {
     { id: 'tarefas', label: 'Tarefas e Retornos', icon: CheckSquare },
     { id: 'locacoes', label: 'Locações de Máquinas', icon: Package },
     { id: 'financeiro', label: 'Gestão Financeira', icon: BarChart2 },
+    { id: 'whatsapp', label: 'WhatsApp Marketing', icon: MessageCircle },
   ];
 
   return (
@@ -404,6 +407,7 @@ export default function App() {
                 {activePage === 'tarefas' && (
                   <Tarefas
                     tarefas={tarefas}
+                    contatos={contatos}
                     onSave={handleSaveTarefa}
                     onDelete={handleDeleteTarefa}
                   />
@@ -421,6 +425,9 @@ export default function App() {
                     locacoes={locacoes}
                     onSave={handleSaveLocacao}
                   />
+                )}
+                {activePage === 'whatsapp' && (
+                  <WhatsApp contatos={contatos} />
                 )}
               </div>
             )}

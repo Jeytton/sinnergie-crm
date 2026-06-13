@@ -135,8 +135,66 @@ export default function Financeiro({ locacoes, onSave }: FinanceiroProps) {
     URL.revokeObjectURL(url);
   };
 
-  const exportPDF = () => {
-    window.print();
+  const exportPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const dateLabel = selectedMonth !== 'Todos'
+      ? `${['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(selectedMonth)-1]}/${selectedYear}`
+      : `Ano ${selectedYear}`;
+
+    doc.setFillColor(139, 26, 46);
+    doc.rect(0, 0, 297, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Sinnergie CRM — Relatório Financeiro', 14, 13);
+    doc.setFontSize(9);
+    doc.text(dateLabel, 260, 13);
+
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    let y = 30;
+
+    const kpis = [
+      `Receita Total: R$ ${totalRevenue.toLocaleString('pt-BR')}`,
+      `Diárias: ${totalCount}`,
+      `Ticket Médio: R$ ${ticketMedio.toLocaleString('pt-BR')}`,
+      `NFs Pendentes: ${pendingNfsCount}`,
+    ];
+    kpis.forEach((t, i) => doc.text(t, 14 + i * 70, y));
+    y += 10;
+
+    const headers = ['Data', 'Cliente', 'Equipamento', 'Cidade', 'Valor Final', 'NF'];
+    const colWidths = [25, 65, 45, 35, 28, 15];
+    let x = 14;
+
+    doc.setFillColor(240, 240, 240);
+    doc.rect(x - 2, y - 4, colWidths.reduce((a, b) => a + b, 4), 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    headers.forEach((h, i) => { doc.text(h, x, y); x += colWidths[i]; });
+    y += 6;
+
+    doc.setFont('helvetica', 'normal');
+    filteredLocs.forEach((l, idx) => {
+      if (y > 185) { doc.addPage(); y = 20; }
+      if (idx % 2 === 0) { doc.setFillColor(250, 247, 247); doc.rect(12, y - 4, 273, 6, 'F'); }
+      x = 14;
+      const row = [
+        l.data.split('-').reverse().join('/'),
+        l.cliente.slice(0, 30),
+        l.equipamento.slice(0, 22),
+        (l.cidade || '').slice(0, 18),
+        `R$ ${l.valor_final.toLocaleString('pt-BR')}`,
+        l.nf_emitida ? 'Sim' : 'Não',
+      ];
+      row.forEach((v, i) => { doc.text(String(v), x, y); x += colWidths[i]; });
+      y += 6;
+    });
+
+    const fileName = `Sinnergie_Financeiro_${selectedYear}${selectedMonth !== 'Todos' ? '_' + selectedMonth.padStart(2,'0') : ''}.pdf`;
+    doc.save(fileName);
   };
 
   return (

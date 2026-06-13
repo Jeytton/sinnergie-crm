@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { Contato } from '../types';
 import { geminiService } from '../geminiService';
-import { ArrowLeft, ArrowRight, MapPin, Eye, Edit2, X, Mail, Phone, Calendar, Tag, User, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, Eye, Edit2, X, Mail, Phone, Calendar, Tag, User, Sparkles, Loader2, Search } from 'lucide-react';
 
 interface PipelineProps {
   contatos: Contato[];
@@ -29,6 +29,8 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
   const statusFlow: Contato['status'][] = ['cold', 'warm', 'hot', 'active', 'lost'];
 
   // View modal
+  const [pipelineSearch, setPipelineSearch] = useState('');
+  const [dragOverCol, setDragOverCol] = useState<Contato['status'] | null>(null);
   const [viewContact, setViewContact] = useState<Contato | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -101,38 +103,66 @@ export default function Pipeline({ contatos, onSave, onNavigateToContacts }: Pip
           </h2>
           <p className="text-xs text-gray-500 mt-1">Monitore e evolua os contatos nas etapas do seu relacionamento</p>
         </div>
-        <button
-          type="button"
-          onClick={onNavigateToContacts}
-          className="bg-white border border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
-        >
-          Ver fichas completas
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+            <input type="text" placeholder="Filtrar no kanban..." value={pipelineSearch}
+              onChange={e => setPipelineSearch(e.target.value)}
+              className="bg-white border border-gray-200 rounded-xl text-xs py-2 pl-8 pr-3 outline-none focus:border-[#8B1A2E] w-48" />
+          </div>
+          <button
+            type="button"
+            onClick={onNavigateToContacts}
+            className="bg-white border border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer"
+          >
+            Ver fichas completas
+          </button>
+        </div>
       </div>
 
       {/* Kanban grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 overflow-x-auto pb-4 items-start">
         {columns.map((col) => {
-          const colItems = contatos.filter(c => c.status === col.id);
+          const allColItems = contatos.filter(c => c.status === col.id);
+          const colItems = pipelineSearch.trim()
+            ? allColItems.filter(c =>
+                c.nome.toLowerCase().includes(pipelineSearch.toLowerCase()) ||
+                c.cidade?.toLowerCase().includes(pipelineSearch.toLowerCase()) ||
+                c.especialidade?.toLowerCase().includes(pipelineSearch.toLowerCase())
+              )
+            : allColItems;
           return (
-            <div key={col.id} className="bg-white border border-gray-200 shadow-xs rounded-xl flex flex-col max-h-[75vh] w-full min-w-[210px]">
+            <div key={col.id}
+              className={`bg-white border shadow-xs rounded-xl flex flex-col max-h-[75vh] w-full min-w-[210px] transition-colors ${dragOverCol === col.id ? 'border-[#8B1A2E] bg-[#FBF0F2]' : 'border-gray-200'}`}
+              onDragOver={e => { e.preventDefault(); setDragOverCol(col.id); }}
+              onDragLeave={() => setDragOverCol(null)}
+              onDrop={async e => {
+                e.preventDefault();
+                setDragOverCol(null);
+                const id = e.dataTransfer.getData('contactId');
+                const item = contatos.find(c => c.id === id);
+                if (item && item.status !== col.id) await onSave({ ...item, status: col.id });
+              }}
+            >
               {/* Column header */}
               <div className="p-3.5 border-b border-gray-100 flex items-center justify-between">
                 <span className={`text-[12px] font-bold ${col.color} tracking-tight uppercase`}>{col.title}</span>
-                <span className="text-[10px] bg-gray-100 px-2.5 py-0.5 rounded-full text-gray-500 font-semibold">{colItems.length}</span>
+                <span className="text-[10px] bg-gray-100 px-2.5 py-0.5 rounded-full text-gray-500 font-semibold">{allColItems.length}</span>
               </div>
 
               {/* Cards */}
               <div className="p-2 space-y-2.5 overflow-y-auto no-scrollbar" style={{ minHeight: '300px' }}>
                 {colItems.length === 0 ? (
                   <div className="text-center py-10 px-2 border border-dashed border-gray-200 rounded-lg">
-                    <p className="text-[10px] text-gray-400">Nenhum lead nesta fase.</p>
+                    <p className="text-[10px] text-gray-400">{pipelineSearch ? 'Sem resultados.' : 'Nenhum lead nesta fase.'}</p>
                   </div>
                 ) : (
                   colItems.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-gray-50/50 border border-gray-150 rounded-lg p-3 hover:border-emerald-300 transition-all space-y-2 flex flex-col justify-between"
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData('contactId', item.id); e.dataTransfer.effectAllowed = 'move'; }}
+                      className="bg-gray-50/50 border border-gray-150 rounded-lg p-3 hover:border-[#8B1A2E] transition-all space-y-2 flex flex-col justify-between cursor-grab active:cursor-grabbing"
                     >
                       <div className="space-y-1.5">
                         <div className="flex justify-between items-start gap-1">

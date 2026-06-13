@@ -21,6 +21,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Locacao | null>(null);
+  const [editingLocacao, setEditingLocacao] = useState<Locacao | null>(null);
 
   // Form Field States
   const [data, setData] = useState(new Date().toISOString().split('T')[0]);
@@ -82,17 +83,44 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     }
   };
 
+  const openEdit = (loc: Locacao) => {
+    setEditingLocacao(loc);
+    setData(loc.data);
+    setHorario(loc.horario);
+    setCliente(loc.cliente);
+    setDra(loc.dra || '');
+    setEquipamento(loc.equipamento);
+    setCidade(loc.cidade || '');
+    setBaseTipo(loc.base_calculo_tipo);
+    setBaseValor(loc.base_calculo_valor);
+    setMaoDeObra(loc.mao_de_obra);
+    setDeslocamento(loc.deslocamento);
+    setValorLocacao(loc.valor_locacao);
+    setNfEmitida(loc.nf_emitida);
+    setLocacaoStatus(loc.status);
+    setObservacoes(loc.observacoes || '');
+    setIsCreateOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingLocacao(null);
+    setCliente(''); setDra(''); setCidade('');
+    setMaoDeObra(0); setDeslocamento(150); setValorLocacao(0);
+    setNfEmitida(false); setObservacoes('');
+    setData(new Date().toISOString().split('T')[0]);
+    setHorario('09:00');
+    setEquipamento('Ultraformer III');
+    setBaseTipo('disparos'); setBaseValor(1200);
+    setLocacaoStatus('agendado');
+  };
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cliente.trim() || !equipamento) return;
 
     await onSave({
-      data,
-      horario,
-      cliente,
-      dra,
-      equipamento,
-      cidade,
+      ...(editingLocacao ? { id: editingLocacao.id } : {}),
+      data, horario, cliente, dra, equipamento, cidade,
       base_calculo_tipo: baseTipo,
       base_calculo_valor: Number(baseValor),
       mao_de_obra: Number(maoDeObra),
@@ -105,16 +133,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     });
 
     setIsCreateOpen(false);
-    showToast(`Locação de ${cliente} registrada com sucesso!`);
-    // Refresh defaults
-    setCliente('');
-    setDra('');
-    setCidade('');
-    setMaoDeObra(0);
-    setDeslocamento(150);
-    setValorLocacao(0);
-    setNfEmitida(false);
-    setObservacoes('');
+    showToast(editingLocacao ? `Locação de ${cliente} atualizada!` : `Locação de ${cliente} registrada com sucesso!`);
+    resetForm();
   };
 
   const toggleNfEmitida = async (rental: Locacao) => {
@@ -593,6 +613,14 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                         )}
                         <button
                           type="button"
+                          onClick={() => openEdit(item)}
+                          className="p-1 rounded bg-gray-50 border border-gray-200 text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer text-xs"
+                          title="Editar locação"
+                        >
+                          ✏
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDeleteClick(item)}
                           className="p-1 rounded bg-gray-50 border border-gray-200 text-rose-650 hover:bg-rose-50 transition-colors cursor-pointer text-xs"
                           title="Apagar locação"
@@ -655,10 +683,10 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
           <div className="bg-white border border-gray-205 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-900">Agendar Nova Locação</h3>
-              <button 
-                type="button" 
-                onClick={() => setIsCreateOpen(false)}
+              <h3 className="text-sm font-bold text-gray-900">{editingLocacao ? 'Editar Locação' : 'Agendar Nova Locação'}</h3>
+              <button
+                type="button"
+                onClick={() => { setIsCreateOpen(false); resetForm(); }}
                 className="text-gray-400 hover:text-gray-600 font-bold"
               >
                 ✕

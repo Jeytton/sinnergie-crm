@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Contato } from '../types';
 import { geminiService } from '../geminiService';
-import { Search, Plus, Trash2, Mail, Phone, MapPin, Tag, MessageSquare, Edit2, Check, X, ShieldAlert, Upload, Download, Sparkles, Loader2 } from 'lucide-react';
+import { Search, Plus, Trash2, Mail, Phone, MapPin, Tag, MessageSquare, Edit2, Check, X, ShieldAlert, Upload, Download, Sparkles, Loader2, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface ContatosProps {
   contatos: Contato[];
@@ -388,6 +388,33 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
 
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 25;
+  const [sortField, setSortField] = useState<'nome' | 'cidade' | 'status' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'nome' | 'cidade' | 'status') => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const exportContatosCSV = () => {
+    const headers = ['Nome', 'Email', 'Telefone', 'Cidade', 'Estado', 'Status', 'Origem', 'Tipo', 'Especialidade', 'Equipamentos', 'Etiquetas', 'Endereço', 'Próx. Follow-up', 'Observações'];
+    const statusLabel: Record<string, string> = { hot: 'Quente', warm: 'Morno', cold: 'Frio', active: 'Ativo', lost: 'Perdido' };
+    const rows = filtered.map(c => [
+      c.nome, c.email || '', c.telefone || '', c.cidade || '', c.estado || '',
+      statusLabel[c.status] || c.status, c.origem || '',
+      c.tipo || '', c.especialidade || '', c.equipamentos || '', c.etiquetas || '',
+      c.endereco || '', c.prox_follow_up ? c.prox_follow_up.split('-').reverse().join('/') : '',
+      c.observacoes || ''
+    ]);
+    const csv = '﻿' + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'Sinnergie_Contatos.csv';
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`${filtered.length} contatos exportados para CSV!`);
+  };
 
   // Get unique lists for filtering
   const cidades = Array.from(new Set(contatos.map(c => c.cidade).filter(Boolean)));
@@ -405,9 +432,20 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
     return matchesSearch && matchesStatus && matchesOrigem && matchesCidade;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const statusOrder: Record<string, number> = { hot: 0, warm: 1, active: 2, cold: 3, lost: 4 };
+  const sorted = [...filtered].sort((a, b) => {
+    if (!sortField) return 0;
+    let va = '', vb = '';
+    if (sortField === 'nome') { va = a.nome; vb = b.nome; }
+    if (sortField === 'cidade') { va = a.cidade || ''; vb = b.cidade || ''; }
+    if (sortField === 'status') { va = String(statusOrder[a.status] ?? 9); vb = String(statusOrder[b.status] ?? 9); }
+    const cmp = va.localeCompare(vb, 'pt-BR', { numeric: sortField === 'status' });
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginated = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Reset to page 1 when filters change
   useEffect(() => { setCurrentPage(1); }, [search, selectedStatus, selectedOrigem, selectedCidade]);
@@ -422,7 +460,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
           </h2>
           <p className="text-xs text-gray-500 mt-1">Gestão de contatos de clínicas, esteticistas e médicos de estética</p>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           <button
             type="button"
             onClick={() => setIsImportOpen(true)}
@@ -433,10 +471,19 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
           </button>
           <button
             type="button"
-            onClick={() => openModal()}
-            className="bg-[#3ecf8e] text-black font-extrabold text-xs px-4 py-2.5 rounded-xl hover:bg-emerald-400 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+            onClick={exportContatosCSV}
+            disabled={filtered.length === 0}
+            className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+            title="Exportar contatos filtrados para CSV"
           >
-            <Plus className="w-4 h-4 text-black" /> Novo Contato
+            <Download className="w-4 h-4 text-gray-400" /> Exportar CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => openModal()}
+            className="bg-[#8B1A2E] text-white font-extrabold text-xs px-4 py-2.5 rounded-xl hover:bg-[#6F1424] transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Novo Contato
           </button>
         </div>
       </div>
@@ -502,6 +549,23 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Sort bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ordenar por:</span>
+        {([['nome','Nome'],['cidade','Cidade'],['status','Status']] as const).map(([field, label]) => (
+          <button key={field} type="button" onClick={() => handleSort(field)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${sortField === field ? 'bg-[#8B1A2E] text-white border-[#8B1A2E]' : 'bg-white border-gray-200 text-gray-600 hover:border-[#8B1A2E] hover:text-[#8B1A2E]'}`}>
+            {label}
+            {sortField === field ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-50" />}
+          </button>
+        ))}
+        {sortField && (
+          <button type="button" onClick={() => { setSortField(null); setSortDir('asc'); }}
+            className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer px-1">✕ limpar</button>
+        )}
+        <span className="ml-auto text-[10px] text-gray-400">{filtered.length} contatos encontrados</span>
       </div>
 
       {/* Grid of Contacts */}
@@ -656,7 +720,7 @@ export default function Contatos({ contatos, onSave, onDelete, onBulkImport }: C
         {totalPages > 1 && (
           <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
             <span className="text-[11px] text-gray-500">
-              Exibindo {((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length} contatos
+              Exibindo {((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, sorted.length)} de {sorted.length} contatos
             </span>
             <div className="flex items-center gap-1.5">
               <button
