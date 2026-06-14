@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Locacao } from '../types';
 import { Download, FileText, TrendingUp, DollarSign, MapPin, List, Calculator } from 'lucide-react';
 
@@ -33,17 +33,8 @@ function getParcela(month: number, year: number): number {
   return PARCELA_VALOR;
 }
 
+// Base de produção = base_calculo_valor diretamente (disparos=contagem, horas/fixo=R$)
 function getProductionValue(loc: Locacao): number {
-  if (loc.base_calculo_tipo === 'disparos') {
-    const shots = loc.base_calculo_valor;
-    if (loc.equipamento === 'Ultraformer MPT') {
-      return shots > 3000 ? shots * 2.00 : shots > 1500 ? shots * 2.10 : shots * 2.20;
-    }
-    // Ultraformer III: tiers 1.80 / 1.70 (corporal flag not stored, use face rate)
-    return shots > 2000 ? shots * 1.70 : shots * 1.80;
-  }
-  // 'horas': base_calculo_valor is already R$ (e.g. endoHoras × 250)
-  // 'valor_fixo': base_calculo_valor is already R$
   return loc.base_calculo_valor;
 }
 
@@ -84,29 +75,87 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
 
   const periodLabel = `${MONTH_NAMES[selectedMonth - 1]}/${selectedYear}`;
 
+  // ─── Edição manual Alessandro ─────────────────────────────────────────────
+  const [alexEditMode, setAlexEditMode] = useState(false);
+  const [alexDraft, setAlexDraft] = useState<Record<string, number>>({});
+  const [alexManualApplied, setAlexManualApplied] = useState(false);
+  const [alexManualSaved, setAlexManualSaved] = useState<Record<string, number>>({});
+
+  // ─── Edição manual Luíza ──────────────────────────────────────────────────
+  const [luizaEditMode, setLuizaEditMode] = useState(false);
+  const [luizaDraft, setLuizaDraft] = useState<Record<string, number>>({});
+  const [luizaManualApplied, setLuizaManualApplied] = useState(false);
+  const [luizaManualSaved, setLuizaManualSaved] = useState<Record<string, number>>({});
+
+  // Limpa edição manual ao trocar período
+  useEffect(() => {
+    setAlexEditMode(false); setAlexManualApplied(false);
+    setAlexDraft({}); setAlexManualSaved({});
+    setLuizaEditMode(false); setLuizaManualApplied(false);
+    setLuizaDraft({}); setLuizaManualSaved({});
+  }, [selectedMonth, selectedYear]);
+
   // ─── Alessandro ───────────────────────────────────────────────────────────
   const alexLocs = periodLocs.filter(l => ALEX_ALL.includes(l.equipamento));
 
   const alexEquipData = ALEX_ALL.map(eq => {
     const locs = alexLocs.filter(l => l.equipamento === eq);
-    const valorProd = locs.reduce((s, l) => s + getProductionValue(l), 0);
-    const base = ALEX_DISPAROS.includes(eq) ? 'Disparos (tabela por faixa)' : 'Valor Base (R$)';
-    return { eq, locs, qtd: locs.length, valorProd, base };
+    const valorProdAuto = locs.reduce((s, l) => s + getProductionValue(l), 0);
+    const label = ALEX_DISPAROS.includes(eq) ? 'Disparos (contagem)' : 'Valor hora/base (R$)';
+    return { eq, locs, qtd: locs.length, valorProdAuto, label };
   });
 
-  const alexSubtotal = alexEquipData.reduce((s, d) => s + d.valorProd, 0);
+  // Valores efetivos: manual se aplicado, senão automático
+  const alexEquipEff = alexEquipData.map(d => ({
+    ...d,
+    valorProd: alexManualApplied && alexManualSaved[d.eq] !== undefined
+      ? alexManualSaved[d.eq]
+      : d.valorProdAuto,
+  }));
+
+  const alexSubtotal = alexEquipEff.reduce((s, d) => s + d.valorProd, 0);
   const { valor: alexComissao, rate: alexRate, faixa: alexFaixa } = calcComissao(alexSubtotal);
   const alexParcela = getParcela(selectedMonth, selectedYear);
   const alexLiquido = alexComissao + SALARIO_FIXO - ADIANTAMENTO - alexParcela;
 
   // ─── Luíza ────────────────────────────────────────────────────────────────
-  const luizaTotal = periodLocs.reduce((s, l) => s + l.valor_final, 0);
-  const ticketMedio = periodLocs.length > 0 ? luizaTotal / periodLocs.length : 0;
-
-  const luizaEquipData = ALL_EQUIPMENT.map(eq => {
+  const luizaEquipDataAuto = ALL_EQUIPMENT.map(eq => {
     const locs = periodLocs.filter(l => l.equipamento === eq);
-    return { eq, qtd: locs.length, receita: locs.reduce((s, l) => s + l.valor_final, 0) };
+    return { eq, qtd: locs.length, receitaAuto: locs.reduce((s, l) => s + l.valor_final, 0) };
   });
+
+  const luizaEquipEff = luizaEquipDataAuto.map(d => ({
+    ...d,
+    receita: luizaManualApplied && luizaManualSaved[d.eq] !== undefined
+      ? luizaManualSaved[d.eq]
+      : d.receitaAuto,
+  }));
+
+  const luizaTotal = luizaManualApplied
+    ? luizaEquipEff.reduce((s, d) => s + d.receita, 0)
+    : periodLocs.reduce((s, l) => s + l.valor_final, 0);
+  const ticketMedio = periodLocs.length > 0
+    ? (luizaManualApplied ? luizaTotal : periodLocs.reduce((s, l) => s + l.valor_final, 0)) / periodLocs.length
+    : 0;
+
+  // ─── Debug log ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    console.group(`[Fechamento] ${periodLabel} — ${periodLocs.length} locações concluídas`);
+    console.log('Todas as locações do período:', periodLocs.map(l => ({
+      data: l.data, cliente: l.cliente, equipamento: l.equipamento,
+      base_tipo: l.base_calculo_tipo, base_valor: l.base_calculo_valor, valor_final: l.valor_final,
+    })));
+    console.group('Alessandro — base por equipamento');
+    alexEquipData.forEach(d => {
+      console.log(`${d.eq}: ${d.qtd} loc(s) → base_calculo_valor soma = ${d.valorProdAuto}`,
+        d.locs.map(l => ({ base_valor: l.base_calculo_valor, tipo: l.base_calculo_tipo })));
+    });
+    console.log('Subtotal base Alessandro:', alexSubtotal);
+    console.groupEnd();
+    console.log('Luíza — total valor_final:', periodLocs.reduce((s, l) => s + l.valor_final, 0));
+    console.groupEnd();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodLocs.length, selectedMonth, selectedYear]);
 
   const cityGroup: Record<string, number> = {};
   periodLocs.forEach(l => {
@@ -130,12 +179,14 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
       l.base_calculo_tipo, l.base_calculo_valor,
       getProductionValue(l).toFixed(2), l.valor_final
     ]));
+    alexEquipEff.forEach(d => d.qtd > 0 && rows.push(['', '', d.eq, '', '', 'Base produção', d.valorProd, '']));
     rows.push(['', '', '', '', '', 'SUBTOTAL PRODUÇÃO', alexSubtotal.toFixed(2), '']);
     rows.push(['', '', '', '', '', `Comissão ${alexRate}%`, alexComissao.toFixed(2), '']);
     rows.push(['', '', '', '', '', 'Salário Fixo', SALARIO_FIXO, '']);
     rows.push(['', '', '', '', '', 'Adiantamento (-)', ADIANTAMENTO, '']);
     rows.push(['', '', '', '', '', `Parcela (-)`, alexParcela, '']);
     rows.push(['', '', '', '', '', 'LÍQUIDO', alexLiquido.toFixed(2), '']);
+    if (alexManualApplied) rows.push(['', '', '', '', '', '* Valores editados manualmente', '', '']);
     downloadCSV(rows, `Fechamento_Alessandro_${yearStr}-${monthStr}.csv`);
   };
 
@@ -166,12 +217,13 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     h1.forEach((h, i) => { doc.text(h, x, y); x += col1[i]; });
     y += 6;
     doc.setFont('helvetica', 'normal');
-    alexEquipData.forEach(d => {
+    alexEquipEff.forEach(d => {
       if (d.qtd === 0) return;
       x = 14;
-      [d.eq, d.base, String(d.qtd), fmtR(d.valorProd)].forEach((v, i) => { doc.text(v, x, y); x += col1[i]; });
+      [d.eq, d.label, String(d.qtd), fmtR(d.valorProd)].forEach((v, i) => { doc.text(v, x, y); x += col1[i]; });
       y += 5.5;
     });
+    if (alexManualApplied) { doc.setFontSize(7); doc.setTextColor(180,80,0); doc.text('* Valores editados manualmente', 14, y); doc.setTextColor(30,30,30); y += 4; }
     y += 2;
     doc.setFont('helvetica', 'bold');
     x = 14 + col1[0] + col1[1] + col1[2];
@@ -240,6 +292,7 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
       l.dra || '', l.valor_final, getNfStatus(l)
     ]));
     rows.push(['', '', '', '', '', 'TOTAL', luizaTotal.toFixed(2)]);
+    if (luizaManualApplied) rows.push(['', '', '', '', '', '* Valores editados manualmente', '']);
     downloadCSV(rows, `Fechamento_Luiza_${yearStr}-${monthStr}.csv`);
   };
 
@@ -264,6 +317,7 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     doc.text(`Locações: ${periodLocs.length}`, 90, y);
     doc.text(`Ticket Médio: ${fmtR(ticketMedio)}`, 140, y);
     y += 12;
+    if (luizaManualApplied) { doc.setFontSize(7); doc.setTextColor(180,80,0); doc.text('Atenção: valores editados manualmente neste relatório', 14, y); doc.setTextColor(30,30,30); y += 5; }
 
     // Equipamentos
     doc.setFontSize(11); doc.text('1. Receita por Equipamento', 14, y); y += 7;
@@ -275,11 +329,12 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     ['Equipamento', 'Locações', 'Receita'].forEach((h, i) => { doc.text(h, x, y); x += col1[i]; });
     y += 6;
     doc.setFont('helvetica', 'normal');
-    luizaEquipData.forEach(d => {
+    luizaEquipEff.forEach(d => {
       x = 14;
       [d.eq, String(d.qtd), fmtR(d.receita)].forEach((v, i) => { doc.text(v, x, y); x += col1[i]; });
       y += 5.5;
     });
+    if (luizaManualApplied) { doc.setFontSize(7); doc.setTextColor(180,80,0); doc.text('* Valores editados manualmente', 14, y); doc.setTextColor(30,30,30); y += 4; }
     y += 8;
 
     // Cidades
@@ -388,33 +443,98 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                 <TrendingUp className="w-4 h-4" style={{ color: bordeaux }} />
                 Produção por Equipamento — {periodLabel}
               </h2>
-              <span className="text-xs text-gray-400">{alexLocs.length} locações</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">{alexLocs.length} locações</span>
+                {!alexEditMode && !alexManualApplied && (
+                  <button
+                    onClick={() => {
+                      const draft: Record<string, number> = {};
+                      alexEquipEff.forEach(d => { draft[d.eq] = d.valorProd; });
+                      setAlexDraft(draft);
+                      setAlexEditMode(true);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    ✏️ Editar valores
+                  </button>
+                )}
+                {alexManualApplied && !alexEditMode && (
+                  <>
+                    <button
+                      onClick={() => { setAlexDraft({ ...alexManualSaved }); setAlexEditMode(true); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                    >✏️ Reeditar</button>
+                    <button
+                      onClick={() => { setAlexManualApplied(false); setAlexManualSaved({}); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                    >↺ Restaurar</button>
+                  </>
+                )}
+                {alexEditMode && (
+                  <>
+                    <button
+                      onClick={() => { setAlexManualSaved({ ...alexDraft }); setAlexManualApplied(true); setAlexEditMode(false); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold text-white transition-colors"
+                      style={{ backgroundColor: bordeaux }}
+                    >✓ Aplicar</button>
+                    <button
+                      onClick={() => { setAlexEditMode(false); setAlexDraft({}); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                    >✕ Cancelar</button>
+                  </>
+                )}
+              </div>
             </div>
+
+            {alexManualApplied && (
+              <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 font-medium flex items-center gap-1.5">
+                ⚠️ Valores editados manualmente — cálculo pode diferir dos dados do sistema
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-700/50">
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Equipamento</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Base</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Campo lido</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Locações</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor Produção</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {alexEquipData.map(d => (
+                  {alexEquipEff.map(d => (
                     <tr key={d.eq} className={d.qtd === 0 ? 'opacity-35' : ''}>
                       <td className="px-5 py-3 font-medium text-gray-800 dark:text-white">{d.eq}</td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{d.base}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{d.label}</td>
                       <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{d.qtd}</td>
-                      <td className="px-5 py-3 text-right font-semibold" style={{ color: d.qtd > 0 ? bordeaux : undefined }}>
-                        {fmtR(d.valorProd)}
+                      <td className="px-5 py-2 text-right">
+                        {alexEditMode ? (
+                          <input
+                            type="number"
+                            value={alexDraft[d.eq] ?? d.valorProd}
+                            onChange={e => setAlexDraft(prev => ({ ...prev, [d.eq]: Number(e.target.value) }))}
+                            className="w-32 text-right border rounded px-2 py-1 text-sm font-semibold focus:outline-none"
+                            style={{ borderColor: bordeaux }}
+                          />
+                        ) : (
+                          <span className="font-semibold" style={{ color: d.qtd > 0 ? bordeaux : undefined }}>
+                            {fmtR(d.valorProd)}
+                            {alexManualApplied && alexManualSaved[d.eq] !== undefined && alexManualSaved[d.eq] !== d.valorProdAuto && (
+                              <span className="text-[10px] text-amber-600 block">auto: {fmtR(d.valorProdAuto)}</span>
+                            )}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
                   <tr className="border-t-2" style={{ borderColor: bordeaux }}>
                     <td colSpan={3} className="px-5 py-3 font-bold text-gray-800 dark:text-white">SUBTOTAL</td>
                     <td className="px-5 py-3 text-right text-lg font-bold" style={{ color: bordeaux }}>
-                      {fmtR(alexSubtotal)}
+                      {alexEditMode
+                        ? fmtR(Object.values(alexDraft).reduce((s, v) => s + v, 0))
+                        : fmtR(alexSubtotal)
+                      }
                     </td>
                   </tr>
                 </tbody>
@@ -582,12 +702,57 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
 
           {/* Bloco 2 — Por Equipamento */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h2 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" style={{ color: bordeaux }} />
                 Receita por Equipamento — {periodLabel}
               </h2>
+              <div className="flex items-center gap-2">
+                {!luizaEditMode && !luizaManualApplied && (
+                  <button
+                    onClick={() => {
+                      const draft: Record<string, number> = {};
+                      luizaEquipEff.forEach(d => { draft[d.eq] = d.receita; });
+                      setLuizaDraft(draft);
+                      setLuizaEditMode(true);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                  >✏️ Editar valores</button>
+                )}
+                {luizaManualApplied && !luizaEditMode && (
+                  <>
+                    <button
+                      onClick={() => { setLuizaDraft({ ...luizaManualSaved }); setLuizaEditMode(true); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
+                    >✏️ Reeditar</button>
+                    <button
+                      onClick={() => { setLuizaManualApplied(false); setLuizaManualSaved({}); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                    >↺ Restaurar</button>
+                  </>
+                )}
+                {luizaEditMode && (
+                  <>
+                    <button
+                      onClick={() => { setLuizaManualSaved({ ...luizaDraft }); setLuizaManualApplied(true); setLuizaEditMode(false); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold text-white transition-colors"
+                      style={{ backgroundColor: bordeaux }}
+                    >✓ Aplicar</button>
+                    <button
+                      onClick={() => { setLuizaEditMode(false); setLuizaDraft({}); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                    >✕ Cancelar</button>
+                  </>
+                )}
+              </div>
             </div>
+
+            {luizaManualApplied && (
+              <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 font-medium flex items-center gap-1.5">
+                ⚠️ Valores editados manualmente — cálculo pode diferir dos dados do sistema
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -599,12 +764,27 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {luizaEquipData.map(d => (
+                  {luizaEquipEff.map(d => (
                     <tr key={d.eq} className={d.qtd === 0 ? 'opacity-35' : ''}>
                       <td className="px-5 py-3 font-medium text-gray-800 dark:text-white">{d.eq}</td>
                       <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{d.qtd}</td>
-                      <td className="px-5 py-3 text-right font-semibold" style={{ color: d.qtd > 0 ? bordeaux : undefined }}>
-                        {fmtR(d.receita)}
+                      <td className="px-5 py-2 text-right">
+                        {luizaEditMode ? (
+                          <input
+                            type="number"
+                            value={luizaDraft[d.eq] ?? d.receita}
+                            onChange={e => setLuizaDraft(prev => ({ ...prev, [d.eq]: Number(e.target.value) }))}
+                            className="w-32 text-right border rounded px-2 py-1 text-sm font-semibold focus:outline-none"
+                            style={{ borderColor: bordeaux }}
+                          />
+                        ) : (
+                          <span className="font-semibold" style={{ color: d.qtd > 0 ? bordeaux : undefined }}>
+                            {fmtR(d.receita)}
+                            {luizaManualApplied && luizaManualSaved[d.eq] !== undefined && luizaManualSaved[d.eq] !== d.receitaAuto && (
+                              <span className="text-[10px] text-amber-600 block">auto: {fmtR(d.receitaAuto)}</span>
+                            )}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-right text-gray-500 text-xs">
                         {luizaTotal > 0 ? ((d.receita / luizaTotal) * 100).toFixed(1) + '%' : '—'}
@@ -614,7 +794,10 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                   <tr className="border-t-2" style={{ borderColor: bordeaux }}>
                     <td colSpan={2} className="px-5 py-3 font-bold text-gray-800 dark:text-white">TOTAL</td>
                     <td className="px-5 py-3 text-right text-lg font-bold" style={{ color: bordeaux }}>
-                      {fmtR(luizaTotal)}
+                      {luizaEditMode
+                        ? fmtR(Object.values(luizaDraft).reduce((s, v) => s + v, 0))
+                        : fmtR(luizaTotal)
+                      }
                     </td>
                     <td className="px-5 py-3 text-right text-gray-500 text-xs">100%</td>
                   </tr>
