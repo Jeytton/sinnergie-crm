@@ -130,6 +130,13 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     setLuizaDraft({}); setLuizaManualSaved({});
   }, [selectedMonth, selectedYear]);
 
+  // ─── Cache ────────────────────────────────────────────────────────────────
+  const clearCache = () => {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('locacoes') || k.startsWith('crm_'));
+    keys.forEach(k => localStorage.removeItem(k));
+    alert(`Cache limpo (${keys.length} chave(s) removida(s)). Recarregue a página para buscar dados frescos do Supabase.`);
+  };
+
   // ─── Diagnóstico Supabase ─────────────────────────────────────────────────
   const runDiagnostic = async () => {
     console.group(`🔍 [DIAGNÓSTICO SUPABASE] Locações ${yearStr}-${monthStr}`);
@@ -189,7 +196,12 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
   };
 
   // ─── Alessandro ───────────────────────────────────────────────────────────
-  const alexLocs = periodLocs.filter(l => ALEX_ALL.includes(l.equipamento));
+  const ALEX_EXCLUDE_CLIENTS = ['adeline', 'luiza'];
+  const alexLocs = periodLocs.filter(l => {
+    if (!ALEX_ALL.includes(l.equipamento)) return false;
+    const clienteLower = (l.cliente || '').toLowerCase();
+    return !ALEX_EXCLUDE_CLIENTS.some(ex => clienteLower.includes(ex));
+  });
 
   const alexEquipData = ALEX_ALL.map(eq => {
     const locs = alexLocs.filter(l => l.equipamento === eq);
@@ -528,6 +540,13 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
           >
             <Bug className="w-3.5 h-3.5" /> Diagnosticar
+          </button>
+          <button
+            onClick={clearCache}
+            title="Remove o cache local e força recarga do Supabase"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+          >
+            Limpar Cache
           </button>
         </div>
       </div>
