@@ -95,8 +95,17 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
   const monthStr = String(selectedMonth).padStart(2, '0');
 
   const periodLocs = locacoes.filter(l => {
-    if (l.status !== 'concluido') return false;
-    return l.data.startsWith(`${yearStr}-${monthStr}-`);
+    const statusNorm = (l.status || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (statusNorm !== 'concluido') return false;
+    const dateStr = l.data || '';
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return parts[2] === yearStr && parts[1].padStart(2, '0') === monthStr;
+      }
+      return false;
+    }
+    return dateStr.startsWith(`${yearStr}-${monthStr}-`);
   });
 
   const periodLabel = `${MONTH_NAMES[selectedMonth - 1]}/${selectedYear}`;
