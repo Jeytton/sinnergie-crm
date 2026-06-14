@@ -10,9 +10,9 @@ interface FechamentoProps {
 type Tab = 'alessandro' | 'luiza';
 
 const ALEX_DISPAROS = ['Ultraformer III', 'Ultraformer MPT'];
-const ALEX_HORAS = ['Endolaser', 'CO2 Fracionado', 'CO2 Íntimo', 'Vectus'];
+const ALEX_HORAS = ['Endolaser Pioon', 'CO2 Fracionado', 'CO2 Íntimo', 'Laser Vectus'];
 const ALEX_ALL = [...ALEX_DISPAROS, ...ALEX_HORAS];
-const ALL_EQUIPMENT = ['Ultraformer III', 'Ultraformer MPT', 'Endolaser', 'CO2 Fracionado', 'CO2 Íntimo', 'Vectus', 'Lavieen', 'Onda Coolwaves'];
+const ALL_EQUIPMENT = ['Ultraformer III', 'Ultraformer MPT', 'Endolaser Pioon', 'CO2 Fracionado', 'CO2 Íntimo', 'Laser Vectus', 'Lavieen', 'Onda Coolwaves'];
 
 const SALARIO_FIXO = 2000;
 const ADIANTAMENTO = 700;
