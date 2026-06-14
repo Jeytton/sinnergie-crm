@@ -2,6 +2,29 @@
 import { Locacao } from '../types';
 import { Search, Plus, Trash2, Calendar, FileText, Check, X, ShieldAlert, Upload, Download, ArrowRight, HelpCircle } from 'lucide-react';
 
+// ── Tabelas de preço 2026 ──────────────────────────────────────────────────
+const VECTUS_TABLE: Record<number, number> = {
+  1: 750, 2: 850, 3: 950, 4: 1050, 5: 1150, 6: 1250,
+  7: 1350, 8: 1450, 9: 1500, 10: 1550, 11: 1650, 12: 1700,
+};
+const CO2_DERMATO_TABLE: Record<number, number> = { 6: 1800, 8: 2500, 10: 3000, 12: 3500 };
+const CO2_INTIMO_TABLE: Record<number, number>  = { 6: 2300, 8: 2800, 10: 3300 };
+const LAVIEEN_TABLE: Record<number, number>     = { 6: 1200, 12: 1400 };
+
+function calcUltra3(shots: number, corporal: boolean): number {
+  if (corporal) return shots * 1.50;
+  return shots > 2000 ? shots * 1.70 : shots * 1.80;
+}
+function calcMpt(shots: number): number {
+  if (shots > 3000) return shots * 2.00;
+  if (shots > 1500) return shots * 2.10;
+  return shots * 2.20;
+}
+function reverseFind(table: Record<number, number>, price: number): number {
+  const entry = Object.entries(table).find(([, v]) => v === price);
+  return entry ? Number(entry[0]) : Number(Object.keys(table)[0]);
+}
+
 interface LocacoesProps {
   locacoes: Locacao[];
   onSave: (locacao: Partial<Locacao>) => Promise<Locacao>;
@@ -41,6 +64,16 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [locacaoStatus, setLocacaoStatus] = useState<'agendado' | 'concluido' | 'cancelado'>('agendado');
   const [observacoes, setObservacoes] = useState('');
 
+  // ── Estado específico por equipamento ──────────────────────────────────
+  const [ultra3Corporal, setUltra3Corporal] = useState(false);
+  const [mptBillingMode, setMptBillingMode] = useState<'disparos' | 'diaria6h' | 'diaria12h'>('disparos');
+  const [endoBillingMode, setEndoBillingMode] = useState<'horas' | 'diaria12h' | 'diaria2dias'>('horas');
+  const [endoHoras, setEndoHoras] = useState(4);
+  const [endoFibras, setEndoFibras] = useState(0);
+  const [vectusHoras, setVectusHoras] = useState(4);
+  const [co2Horas, setCo2Horas] = useState(6);
+  const [lavieenHoras, setLavieenHoras] = useState(6);
+
   // Toast dynamic notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -55,32 +88,68 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Auto-calculation logic of Valor Final
+  // Auto-calculation — equipment-aware
   useEffect(() => {
-    let baseComp = Number(baseValor) || 0;
-    
-    // Customize base calculation depending on equipment
-    if (baseTipo === 'disparos') {
-      // e.g. R$ 1.10 per shot for Ultraformer
-      baseComp = (Number(baseValor) || 0) * 1.15;
+    let baseComp = 0;
+    const shots = Number(baseValor) || 0;
+
+    if (equipamento === 'Ultraformer III') {
+      baseComp = calcUltra3(shots, ultra3Corporal);
+    } else if (equipamento === 'Ultraformer MPT') {
+      if (mptBillingMode === 'diaria6h') baseComp = 400;
+      else if (mptBillingMode === 'diaria12h') baseComp = 600;
+      else baseComp = calcMpt(shots);
+    } else if (equipamento === 'Endolaser') {
+      if (endoBillingMode === 'diaria12h') baseComp = 1200;
+      else if (endoBillingMode === 'diaria2dias') baseComp = 2000;
+      else baseComp = endoHoras * 250;
+      baseComp += endoFibras * 1000;
+    } else if (equipamento === 'Vectus') {
+      baseComp = VECTUS_TABLE[vectusHoras] || 0;
+    } else if (equipamento === 'CO2 Fracionado') {
+      baseComp = CO2_DERMATO_TABLE[co2Horas] || 0;
+    } else if (equipamento === 'CO2 Íntimo') {
+      baseComp = CO2_INTIMO_TABLE[co2Horas] || 0;
+    } else if (equipamento === 'Lavieen') {
+      baseComp = LAVIEEN_TABLE[lavieenHoras] || 0;
+    } else {
+      baseComp = baseTipo === 'disparos' ? shots * 1.15 : shots;
     }
 
-    const calculated = baseComp + (Number(maoDeObra) || 0) + (Number(deslocamento) || 0) + (Number(valorLocacao) || 0);
-    setValorFinal(Math.round(calculated));
-  }, [baseTipo, baseValor, maoDeObra, deslocamento, valorLocacao]);
+    const total = baseComp + (Number(maoDeObra) || 0) + (Number(deslocamento) || 0) + (Number(valorLocacao) || 0);
+    setValorFinal(Math.round(total));
+  }, [equipamento, baseTipo, baseValor, maoDeObra, deslocamento, valorLocacao,
+      ultra3Corporal, mptBillingMode, endoBillingMode, endoHoras, endoFibras,
+      vectusHoras, co2Horas, lavieenHoras]);
 
-  // Handle Equipment changes to adjust defaults matching raw mock
   const handleEqChange = (eq: string) => {
     setEquipamento(eq);
-    if (eq === 'Ultraformer III' || eq === 'Ultraformer MPT') {
-      setBaseTipo('disparos');
-      setBaseValor(1200);
-    } else if (eq === 'Endolaser' || eq === 'CO2 Fracionado') {
-      setBaseTipo('horas');
-      setBaseValor(600); // base price equivalent
+    // Reset equipment-specific state
+    setUltra3Corporal(false);
+    setMptBillingMode('disparos');
+    setEndoBillingMode('horas');
+    setEndoHoras(4);
+    setEndoFibras(0);
+    setVectusHoras(4);
+    setCo2Horas(6);
+    setLavieenHoras(6);
+
+    if (eq === 'Ultraformer III') {
+      setBaseTipo('disparos'); setBaseValor(1000);
+    } else if (eq === 'Ultraformer MPT') {
+      setBaseTipo('disparos'); setBaseValor(1000);
+    } else if (eq === 'Endolaser') {
+      setBaseTipo('horas'); setBaseValor(1000); // 4h × 250
+    } else if (eq === 'Vectus') {
+      setBaseTipo('valor_fixo'); setBaseValor(VECTUS_TABLE[4]);
+    } else if (eq === 'CO2 Fracionado') {
+      setBaseTipo('valor_fixo'); setBaseValor(CO2_DERMATO_TABLE[6]);
+    } else if (eq === 'CO2 Íntimo') {
+      setBaseTipo('valor_fixo'); setBaseValor(CO2_INTIMO_TABLE[6]);
+    } else if (eq === 'Lavieen') {
+      setBaseTipo('valor_fixo'); setBaseValor(LAVIEEN_TABLE[6]);
     } else {
-      setBaseTipo('valor_fixo');
-      setBaseValor(800);
+      setBaseTipo('valor_fixo'); setBaseValor(0);
     }
   };
 
@@ -100,6 +169,28 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setNfStatus(loc.nf_status ?? (loc.nf_emitida ? 'emitida' : 'pendente'));
     setLocacaoStatus(loc.status);
     setObservacoes(loc.observacoes || '');
+
+    // Restore equipment-specific UI state
+    setUltra3Corporal(false);
+    if (loc.equipamento === 'Ultraformer MPT' && loc.base_calculo_tipo === 'valor_fixo') {
+      setMptBillingMode(loc.base_calculo_valor <= 400 ? 'diaria6h' : 'diaria12h');
+    } else {
+      setMptBillingMode('disparos');
+    }
+    if (loc.equipamento === 'Endolaser') {
+      if (loc.base_calculo_tipo === 'horas') {
+        setEndoBillingMode('horas');
+        setEndoHoras(Math.max(1, Math.round(loc.base_calculo_valor / 250)));
+      } else {
+        setEndoBillingMode(loc.base_calculo_valor <= 1200 ? 'diaria12h' : 'diaria2dias');
+      }
+      setEndoFibras(0);
+    }
+    if (loc.equipamento === 'Vectus')       setVectusHoras(reverseFind(VECTUS_TABLE, loc.base_calculo_valor));
+    if (loc.equipamento === 'CO2 Fracionado') setCo2Horas(reverseFind(CO2_DERMATO_TABLE, loc.base_calculo_valor));
+    if (loc.equipamento === 'CO2 Íntimo')   setCo2Horas(reverseFind(CO2_INTIMO_TABLE, loc.base_calculo_valor));
+    if (loc.equipamento === 'Lavieen')      setLavieenHoras(reverseFind(LAVIEEN_TABLE, loc.base_calculo_valor));
+
     setIsCreateOpen(true);
   };
 
@@ -111,19 +202,44 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setData(new Date().toISOString().split('T')[0]);
     setHorario('09:00');
     setEquipamento('Ultraformer III');
-    setBaseTipo('disparos'); setBaseValor(1200);
+    setBaseTipo('disparos'); setBaseValor(1000);
     setLocacaoStatus('agendado');
+    setUltra3Corporal(false);
+    setMptBillingMode('disparos');
+    setEndoBillingMode('horas'); setEndoHoras(4); setEndoFibras(0);
+    setVectusHoras(4); setCo2Horas(6); setLavieenHoras(6);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cliente.trim() || !equipamento) return;
 
+    // Derive correct base_calculo_tipo and base_calculo_valor per equipment
+    let storedBaseTipo: 'disparos' | 'horas' | 'valor_fixo' = baseTipo;
+    let storedBaseValor = Number(baseValor);
+    if (equipamento === 'Ultraformer III') {
+      storedBaseTipo = 'disparos'; storedBaseValor = Number(baseValor);
+    } else if (equipamento === 'Ultraformer MPT') {
+      if (mptBillingMode === 'disparos') { storedBaseTipo = 'disparos'; storedBaseValor = Number(baseValor); }
+      else { storedBaseTipo = 'valor_fixo'; storedBaseValor = mptBillingMode === 'diaria6h' ? 400 : 600; }
+    } else if (equipamento === 'Endolaser') {
+      if (endoBillingMode === 'horas') { storedBaseTipo = 'horas'; storedBaseValor = endoHoras * 250; }
+      else { storedBaseTipo = 'valor_fixo'; storedBaseValor = endoBillingMode === 'diaria12h' ? 1200 : 2000; }
+    } else if (equipamento === 'Vectus') {
+      storedBaseTipo = 'valor_fixo'; storedBaseValor = VECTUS_TABLE[vectusHoras] || 0;
+    } else if (equipamento === 'CO2 Fracionado') {
+      storedBaseTipo = 'valor_fixo'; storedBaseValor = CO2_DERMATO_TABLE[co2Horas] || 0;
+    } else if (equipamento === 'CO2 Íntimo') {
+      storedBaseTipo = 'valor_fixo'; storedBaseValor = CO2_INTIMO_TABLE[co2Horas] || 0;
+    } else if (equipamento === 'Lavieen') {
+      storedBaseTipo = 'valor_fixo'; storedBaseValor = LAVIEEN_TABLE[lavieenHoras] || 0;
+    }
+
     await onSave({
       ...(editingLocacao ? { id: editingLocacao.id } : {}),
       data, horario, cliente, dra, equipamento, cidade,
-      base_calculo_tipo: baseTipo,
-      base_calculo_valor: Number(baseValor),
+      base_calculo_tipo: storedBaseTipo,
+      base_calculo_valor: storedBaseValor,
       mao_de_obra: Number(maoDeObra),
       deslocamento: Number(deslocamento),
       valor_locacao: Number(valorLocacao),
@@ -786,9 +902,11 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   >
                     <option value="Ultraformer III">Ultraformer III</option>
                     <option value="Ultraformer MPT">Ultraformer MPT</option>
-                    <option value="Endolaser">Endolaser</option>
-                    <option value="CO2 Fracionado">CO2 Fracionado</option>
-                    <option value="Vectus">Vectus</option>
+                    <option value="Endolaser">Endolaser Pioon 1470nm</option>
+                    <option value="CO2 Fracionado">CO2 Dermatológico</option>
+                    <option value="CO2 Íntimo">CO2 Íntimo</option>
+                    <option value="Vectus">Laser Vectus</option>
+                    <option value="Lavieen">Lavieen</option>
                   </select>
                 </div>
                 <div>
@@ -803,82 +921,208 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                 </div>
               </div>
 
-              {/* MATH WORKSHOP CARD: CALCULATOR PARAMETERS */}
+              {/* CALCULATOR — dinâmico por equipamento */}
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">
-                  Base De Cálculos Tarifários — Sinnergie
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#8B1A2E]">
+                  Tabela Sinnergie 2026 — {equipamento}
                 </span>
 
-                {/* Variable Base Selector */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2 border-b border-gray-150">
+                {/* ULTRAFORMER III */}
+                {equipamento === 'Ultraformer III' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos (mín. 1.000)</label>
+                        <input type="number" min={1000} value={baseValor}
+                          onChange={e => setBaseValor(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                        />
+                      </div>
+                      <div className="flex items-end pb-2">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input type="checkbox" checked={ultra3Corporal}
+                            onChange={e => setUltra3Corporal(e.target.checked)}
+                            className="w-4 h-4 accent-[#8B1A2E]"
+                          />
+                          <span className="text-xs text-gray-700 leading-tight">
+                            Cartucho Corporal<br/>
+                            <span className="text-[10px] text-gray-400">R$ 1,50/disparo</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 bg-white rounded px-2 py-1.5 border border-gray-100">
+                      Face: ≤ 2.000 disparos → R$1,80/disp · &gt;2.000 → R$1,70/disp · Corporal → R$1,50/disp
+                    </p>
+                  </div>
+                )}
+
+                {/* ULTRAFORMER MPT */}
+                {equipamento === 'Ultraformer MPT' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1.5">Forma de Cobrança</label>
+                      <div className="flex gap-1.5">
+                        {[
+                          { val: 'disparos',  label: 'Por Disparos' },
+                          { val: 'diaria6h',  label: 'Diária 6h — R$400' },
+                          { val: 'diaria12h', label: 'Diária 12h — R$600' },
+                        ].map(opt => (
+                          <button key={opt.val} type="button"
+                            onClick={() => setMptBillingMode(opt.val as typeof mptBillingMode)}
+                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${
+                              mptBillingMode === opt.val ? 'bg-[#8B1A2E] text-white border-[#8B1A2E]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                            }`}
+                          >{opt.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {mptBillingMode === 'disparos' && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos (mín. 1.000)</label>
+                          <input type="number" min={1000} value={baseValor}
+                            onChange={e => setBaseValor(Number(e.target.value))}
+                            className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                          />
+                        </div>
+                        <p className="text-[10px] text-gray-400">≤ 1.500 → R$2,20/disp · 1.501–3.000 → R$2,10/disp · &gt;3.000 → R$2,00/disp</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ENDOLASER */}
+                {equipamento === 'Endolaser' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1.5">Forma de Cobrança</label>
+                      <div className="flex gap-1.5">
+                        {[
+                          { val: 'horas',       label: 'Por Horas — R$250/h' },
+                          { val: 'diaria12h',   label: 'Diária 12h — R$1.200' },
+                          { val: 'diaria2dias', label: '2 Dias — R$2.000' },
+                        ].map(opt => (
+                          <button key={opt.val} type="button"
+                            onClick={() => setEndoBillingMode(opt.val as typeof endoBillingMode)}
+                            className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${
+                              endoBillingMode === opt.val ? 'bg-[#8B1A2E] text-white border-[#8B1A2E]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                            }`}
+                          >{opt.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {endoBillingMode === 'horas' && (
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Horas</label>
+                        <input type="number" min={1} max={24} value={endoHoras}
+                          onChange={e => setEndoHoras(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1">Fibras utilizadas (R$1.000/unidade)</label>
+                      <input type="number" min={0} max={20} value={endoFibras}
+                        onChange={e => setEndoFibras(Number(e.target.value))}
+                        className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* VECTUS */}
+                {equipamento === 'Vectus' && (
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Modelo de Medição</label>
-                    <select
-                      value={baseTipo}
-                      onChange={(e) => setBaseTipo(e.target.value as 'disparos' | 'horas' | 'valor_fixo')}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900"
-                    >
-                      <option value="disparos">Por Disparo/Contagem Disparo (Ultraformer)</option>
-                      <option value="horas">Taxa de Horas Base (Laser/Endo)</option>
-                      <option value="valor_fixo">Montante de Locação Fixo</option>
+                    <label className="block text-[10px] text-gray-500 mb-1">Período de Locação</label>
+                    <select value={vectusHoras} onChange={e => setVectusHoras(Number(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
+                      {Object.entries(VECTUS_TABLE).map(([h, v]) => (
+                        <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
+                      ))}
                     </select>
                   </div>
+                )}
 
+                {/* CO2 DERMATOLÓGICO */}
+                {equipamento === 'CO2 Fracionado' && (
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">
-                      {baseTipo === 'disparos' ? 'Quantidade Estações (Disparos)' : baseTipo === 'horas' ? 'Valor Adquirido por Hora ($)' : 'Valor de Aluguel ($)'}
-                    </label>
-                    <input
-                      type="number"
-                      value={baseValor}
-                      onChange={(e) => setBaseValor(Number(e.target.value))}
+                    <label className="block text-[10px] text-gray-500 mb-1">Período de Locação</label>
+                    <select value={co2Horas} onChange={e => setCo2Horas(Number(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
+                      {Object.entries(CO2_DERMATO_TABLE).map(([h, v]) => (
+                        <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* CO2 ÍNTIMO */}
+                {equipamento === 'CO2 Íntimo' && (
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Período de Locação</label>
+                    <select value={co2Horas} onChange={e => setCo2Horas(Number(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
+                      {Object.entries(CO2_INTIMO_TABLE).map(([h, v]) => (
+                        <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* LAVIEEN */}
+                {equipamento === 'Lavieen' && (
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Período de Locação</label>
+                    <select value={lavieenHoras} onChange={e => setLavieenHoras(Number(e.target.value))}
+                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
+                      {Object.entries(LAVIEEN_TABLE).map(([h, v]) => (
+                        <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-1">Normalmente comercializado em combo com Ultraformer</p>
+                  </div>
+                )}
+
+                {/* Custos adicionais */}
+                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Mão de Obra (R$)</label>
+                    <input type="number" value={maoDeObra}
+                      onChange={e => setMaoDeObra(Number(e.target.value))}
                       className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
                     />
                   </div>
-                </div>
-
-                {/* Relocation variables, labor work, material cost */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Mão de Obra Técnica (R$)</label>
-                    <input
-                      type="number"
-                      value={maoDeObra}
-                      onChange={(e) => setMaoDeObra(Number(e.target.value))}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-[10px] text-gray-500 mb-1">Deslocamento / Frete (R$)</label>
-                    <input
-                      type="number"
-                      value={deslocamento}
-                      onChange={(e) => setDeslocamento(Number(e.target.value))}
+                    <input type="number" value={deslocamento}
+                      onChange={e => setDeslocamento(Number(e.target.value))}
                       className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
                     />
                   </div>
-
                   <div>
                     <label className="block text-[10px] text-gray-500 mb-1">Acessórios / Outros (R$)</label>
-                    <input
-                      type="number"
-                      value={valorLocacao}
-                      onChange={(e) => setValorLocacao(Number(e.target.value))}
+                    <input type="number" value={valorLocacao}
+                      onChange={e => setValorLocacao(Number(e.target.value))}
                       className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Dynamic Live Display final math card */}
+              {/* Valor Final Card */}
               <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4.5 flex justify-between items-center">
                 <div>
                   <span className="text-xs text-emerald-800 font-bold">Valor Final Estimado</span>
-                  <p className="text-[10px] text-gray-500 mt-0.5 font-sans leading-relaxed">
-                    {baseTipo === 'disparos' 
-                      ? `Compõe: (${baseValor} disparos × R$ 1,15) + ${maoDeObra} M.O + ${deslocamento} Frete` 
-                      : `Compõe: R$ ${baseValor} Base + ${maoDeObra} M.O + ${deslocamento} Frete`}
+                  <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
+                    {equipamento === 'Ultraformer III'
+                      ? `${baseValor} disparos × R$${ultra3Corporal ? '1,50' : Number(baseValor) > 2000 ? '1,70' : '1,80'} + frete`
+                      : equipamento === 'Ultraformer MPT' && mptBillingMode === 'disparos'
+                      ? `${baseValor} disparos × R$${Number(baseValor) > 3000 ? '2,00' : Number(baseValor) > 1500 ? '2,10' : '2,20'} + frete`
+                      : equipamento === 'Endolaser' && endoBillingMode === 'horas'
+                      ? `${endoHoras}h × R$250${endoFibras > 0 ? ` + ${endoFibras} fibra(s)` : ''} + frete`
+                      : `Base de locação + frete`
+                    }
                   </p>
                 </div>
                 <div className="text-2xl font-bold text-emerald-700">

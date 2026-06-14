@@ -9,9 +9,9 @@ interface FechamentoProps {
 type Tab = 'alessandro' | 'luiza';
 
 const ALEX_DISPAROS = ['Ultraformer III', 'Ultraformer MPT'];
-const ALEX_HORAS = ['Endolaser', 'CO2 Fracionado', 'Vectus'];
+const ALEX_HORAS = ['Endolaser', 'CO2 Fracionado', 'CO2 Íntimo', 'Vectus'];
 const ALEX_ALL = [...ALEX_DISPAROS, ...ALEX_HORAS];
-const ALL_EQUIPMENT = ['Ultraformer III', 'Ultraformer MPT', 'Endolaser', 'CO2 Fracionado', 'Vectus', 'Lavieen', 'Onda Coolwaves'];
+const ALL_EQUIPMENT = ['Ultraformer III', 'Ultraformer MPT', 'Endolaser', 'CO2 Fracionado', 'CO2 Íntimo', 'Vectus', 'Lavieen', 'Onda Coolwaves'];
 
 const SALARIO_FIXO = 2000;
 const ADIANTAMENTO = 700;
@@ -34,8 +34,16 @@ function getParcela(month: number, year: number): number {
 }
 
 function getProductionValue(loc: Locacao): number {
-  // Ultraformer: shots × R$1,15/shot; others: base hourly value in R$
-  if (loc.base_calculo_tipo === 'disparos') return loc.base_calculo_valor * 1.15;
+  if (loc.base_calculo_tipo === 'disparos') {
+    const shots = loc.base_calculo_valor;
+    if (loc.equipamento === 'Ultraformer MPT') {
+      return shots > 3000 ? shots * 2.00 : shots > 1500 ? shots * 2.10 : shots * 2.20;
+    }
+    // Ultraformer III: tiers 1.80 / 1.70 (corporal flag not stored, use face rate)
+    return shots > 2000 ? shots * 1.70 : shots * 1.80;
+  }
+  // 'horas': base_calculo_valor is already R$ (e.g. endoHoras × 250)
+  // 'valor_fixo': base_calculo_valor is already R$
   return loc.base_calculo_valor;
 }
 
@@ -82,7 +90,7 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
   const alexEquipData = ALEX_ALL.map(eq => {
     const locs = alexLocs.filter(l => l.equipamento === eq);
     const valorProd = locs.reduce((s, l) => s + getProductionValue(l), 0);
-    const base = ALEX_DISPAROS.includes(eq) ? 'Disparos × R$1,15' : 'Valor Hora';
+    const base = ALEX_DISPAROS.includes(eq) ? 'Disparos (tabela por faixa)' : 'Valor Base (R$)';
     return { eq, locs, qtd: locs.length, valorProd, base };
   });
 
