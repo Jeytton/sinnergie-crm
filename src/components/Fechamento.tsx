@@ -41,27 +41,27 @@ function getParcela(month: number, year: number): number {
 function getProductionValue(loc: Locacao): number {
   const eq = loc.equipamento.toLowerCase();
 
-  // Campo preenchido — usa diretamente
-  if (loc.base_calculo_valor > 0) {
+  // Campo preenchido corretamente pelo banco (tipo 'horas' ou 'disparos')
+  if (loc.base_calculo_tipo !== 'valor_fixo' && loc.base_calculo_valor > 0) {
     return loc.base_calculo_valor;
   }
 
-  // Fallback: base_calculo_valor está vazio/zero
-  // Para todos os equipamentos: valor_final - deslocamento - mao_de_obra - valor_locacao
-  const baseDerivada = loc.valor_final - (loc.deslocamento || 0) - (loc.mao_de_obra || 0) - (loc.valor_locacao || 0);
-  const base = Math.max(0, baseDerivada);
+  // Fallback: base_calculo_valor ainda zerado (dados antigos no cache)
+  // Para horas (Vectus, Endolaser, CO2): base = valor_final - deslocamento
+  const baseHoras = Math.max(0, loc.valor_final - (loc.deslocamento || 0));
 
-  if (eq.includes('vectus')) return base;         // valor das horas
-  if (eq.includes('endolaser') || eq.includes('pioon')) return base; // valor hora
-  if (eq.includes('co2') || eq.includes('co₂'))  return base; // valor hora
-  if (eq.includes('ultraformer'))                 return base; // fallback de disparos
-  if (eq.includes('lavieen'))                     return 0;   // excluído
-  if (eq.includes('coolwaves'))                   return 0;   // excluído
-  return base;
+  if (eq.includes('vectus'))                         return baseHoras;
+  if (eq.includes('endolaser') || eq.includes('pioon')) return baseHoras;
+  if (eq.includes('co2') || eq.includes('co₂'))     return baseHoras;
+  if (eq.includes('ultraformer'))                    return baseHoras; // fallback sem disparos reais
+  if (eq.includes('lavieen'))                        return 0;
+  if (eq.includes('coolwaves'))                      return 0;
+  return baseHoras;
 }
 
 function hasMissingBase(loc: Locacao): boolean {
-  return loc.base_calculo_valor === 0 || loc.base_calculo_valor === null || loc.base_calculo_valor === undefined;
+  // Considera ausente só se tipo ainda é 'valor_fixo' (padrão do CSV antigo)
+  return loc.base_calculo_tipo === 'valor_fixo' || loc.base_calculo_valor == null;
 }
 
 function getNfStatus(l: Locacao): string {
