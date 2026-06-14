@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Locacao } from '../types';
-import { Download, FileText, TrendingUp, DollarSign, MapPin, List, Calculator } from 'lucide-react';
+import { Download, FileText, TrendingUp, DollarSign, MapPin, List, Calculator, Bug } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 interface FechamentoProps {
   locacoes: Locacao[];
@@ -33,9 +34,34 @@ function getParcela(month: number, year: number): number {
   return PARCELA_VALOR;
 }
 
-// Base de produção = base_calculo_valor diretamente (disparos=contagem, horas/fixo=R$)
+// Base de produção Alessandro:
+// 1) Se base_calculo_valor > 0 → usa diretamente (campo preenchido corretamente)
+// 2) Fallback por nome do equipamento → deriva do valor_final - deslocamento
+//    (para locações importadas via CSV sem base_calculo_tipo/valor)
 function getProductionValue(loc: Locacao): number {
-  return loc.base_calculo_valor;
+  const eq = loc.equipamento.toLowerCase();
+
+  // Campo preenchido — usa diretamente
+  if (loc.base_calculo_valor > 0) {
+    return loc.base_calculo_valor;
+  }
+
+  // Fallback: base_calculo_valor está vazio/zero
+  // Para todos os equipamentos: valor_final - deslocamento - mao_de_obra - valor_locacao
+  const baseDerivada = loc.valor_final - (loc.deslocamento || 0) - (loc.mao_de_obra || 0) - (loc.valor_locacao || 0);
+  const base = Math.max(0, baseDerivada);
+
+  if (eq.includes('vectus')) return base;         // valor das horas
+  if (eq.includes('endolaser') || eq.includes('pioon')) return base; // valor hora
+  if (eq.includes('co2') || eq.includes('co₂'))  return base; // valor hora
+  if (eq.includes('ultraformer'))                 return base; // fallback de disparos
+  if (eq.includes('lavieen'))                     return 0;   // excluído
+  if (eq.includes('coolwaves'))                   return 0;   // excluído
+  return base;
+}
+
+function hasMissingBase(loc: Locacao): boolean {
+  return loc.base_calculo_valor === 0 || loc.base_calculo_valor === null || loc.base_calculo_valor === undefined;
 }
 
 function getNfStatus(l: Locacao): string {
@@ -95,6 +121,64 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     setLuizaDraft({}); setLuizaManualSaved({});
   }, [selectedMonth, selectedYear]);
 
+  // ─── Diagnóstico Supabase ─────────────────────────────────────────────────
+  const runDiagnostic = async () => {
+    console.group(`🔍 [DIAGNÓSTICO SUPABASE] Locações ${yearStr}-${monthStr}`);
+    try {
+      const { data, error } = await supabase
+        .from('locacoes')
+        .select('id, data, cliente, equipamento, base_calculo_tipo, base_calculo_valor, mao_de_obra, deslocamento, valor_locacao, valor_final, status, nf_status, observacoes')
+        .gte('data', `${yearStr}-${monthStr}-01`)
+        .lte('data', `${yearStr}-${monthStr}-31`)
+        .order('data', { ascending: true });
+
+      if (error) {
+        console.error('Erro na query Supabase:', error);
+        console.log('Usando dados do localStorage como fallback.');
+      }
+
+      const rows = (data ?? []) as any[];
+      console.log(`Total de locações no Supabase para ${monthStr}/${yearStr}: ${rows.length}`);
+      console.table(rows.map(r => ({
+        data: r.data,
+        cliente: r.cliente,
+        equipamento: r.equipamento,
+        status: r.status,
+        base_tipo: r.base_calculo_tipo ?? '(VAZIO)',
+        base_valor: r.base_calculo_valor ?? '(VAZIO)',
+        deslocamento: r.deslocamento,
+        valor_final: r.valor_final,
+        'base_calc derivada': Math.max(0, (r.valor_final || 0) - (r.deslocamento || 0) - (r.mao_de_obra || 0) - (r.valor_locacao || 0)),
+      })));
+
+      const semBase = rows.filter(r => !r.base_calculo_valor);
+      if (semBase.length > 0) {
+        console.warn(`⚠️ ${semBase.length} locação(ões) com base_calculo_valor VAZIO:`,
+          semBase.map(r => `${r.data} ${r.cliente} (${r.equipamento})`));
+        console.log('Fallback aplicado: base = valor_final - deslocamento - mao_de_obra - valor_locacao');
+      } else {
+        console.log('✅ Todas as locações têm base_calculo_valor preenchido.');
+      }
+
+      // localStorage
+      console.group('📦 Dados no localStorage (cache local)');
+      const locsLocal = periodLocs;
+      console.log(`${locsLocal.length} locações concluídas no período (cache atual do app)`);
+      console.table(locsLocal.map(l => ({
+        data: l.data, cliente: l.cliente, equipamento: l.equipamento,
+        base_tipo: l.base_calculo_tipo, base_valor: l.base_calculo_valor,
+        valor_final: l.valor_final, status: l.status,
+        'missing_base': hasMissingBase(l),
+        'prod_value_calculado': getProductionValue(l),
+      })));
+      console.groupEnd();
+    } catch (err) {
+      console.error('Falha no diagnóstico:', err);
+    }
+    console.groupEnd();
+    alert(`Diagnóstico executado — abra o Console (F12) para ver os resultados detalhados de ${monthStr}/${yearStr}.`);
+  };
+
   // ─── Alessandro ───────────────────────────────────────────────────────────
   const alexLocs = periodLocs.filter(l => ALEX_ALL.includes(l.equipamento));
 
@@ -138,19 +222,37 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
     ? (luizaManualApplied ? luizaTotal : periodLocs.reduce((s, l) => s + l.valor_final, 0)) / periodLocs.length
     : 0;
 
-  // ─── Debug log ────────────────────────────────────────────────────────────
+  // ─── Debug log automático ─────────────────────────────────────────────────
   useEffect(() => {
     console.group(`[Fechamento] ${periodLabel} — ${periodLocs.length} locações concluídas`);
-    console.log('Todas as locações do período:', periodLocs.map(l => ({
+
+    const comFallback = periodLocs.filter(hasMissingBase);
+    if (comFallback.length > 0) {
+      console.warn(`⚠️ ${comFallback.length} locação(ões) com base_calculo_valor=0 → usando fallback (valor_final - extras):`,
+        comFallback.map(l => `${l.data} ${l.cliente} (${l.equipamento}) → fallback = ${getProductionValue(l)}`));
+    }
+
+    console.log('Locações do período:');
+    console.table(periodLocs.map(l => ({
       data: l.data, cliente: l.cliente, equipamento: l.equipamento,
-      base_tipo: l.base_calculo_tipo, base_valor: l.base_calculo_valor, valor_final: l.valor_final,
+      base_tipo: l.base_calculo_tipo, base_valor: l.base_calculo_valor,
+      missing_base: hasMissingBase(l),
+      prod_value: getProductionValue(l), valor_final: l.valor_final,
     })));
-    console.group('Alessandro — base por equipamento');
+
+    console.group('Alessandro — base efetiva por equipamento');
     alexEquipData.forEach(d => {
-      console.log(`${d.eq}: ${d.qtd} loc(s) → base_calculo_valor soma = ${d.valorProdAuto}`,
-        d.locs.map(l => ({ base_valor: l.base_calculo_valor, tipo: l.base_calculo_tipo })));
+      const withFallback = d.locs.filter(hasMissingBase);
+      console.log(
+        `${d.eq}: ${d.qtd} loc(s) → soma = ${d.valorProdAuto}` +
+        (withFallback.length ? ` (${withFallback.length} com fallback)` : ''),
+        d.locs.map(l => ({
+          cliente: l.cliente, base_valor: l.base_calculo_valor,
+          fallback: hasMissingBase(l), prod_value: getProductionValue(l),
+        }))
+      );
     });
-    console.log('Subtotal base Alessandro:', alexSubtotal);
+    console.log('Subtotal Alessandro:', alexSubtotal);
     console.groupEnd();
     console.log('Luíza — total valor_final:', periodLocs.reduce((s, l) => s + l.valor_final, 0));
     console.groupEnd();
@@ -393,13 +495,12 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
           <p className="text-sm text-gray-500 mt-0.5">Comissões e receita por período</p>
         </div>
 
-        {/* Filtros de período */}
-        <div className="flex items-center gap-2">
+        {/* Filtros de período + diagnóstico */}
+        <div className="flex items-center gap-2 flex-wrap">
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(Number(e.target.value))}
-            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2"
-            style={{ outline: 'none' }}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none"
           >
             {MONTH_NAMES.map((m, i) => (
               <option key={i + 1} value={i + 1}>{m}</option>
@@ -412,8 +513,35 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
           >
             {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button
+            onClick={runDiagnostic}
+            title="Consulta Supabase e mostra todos os campos no console (F12)"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+          >
+            <Bug className="w-3.5 h-3.5" /> Diagnosticar
+          </button>
         </div>
       </div>
+
+      {/* Banner de fallback quando há locações sem base_calculo_valor */}
+      {periodLocs.some(hasMissingBase) && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-800 flex items-start gap-2">
+          <span className="text-lg leading-none mt-0.5">⚠️</span>
+          <div>
+            <strong>
+              {periodLocs.filter(hasMissingBase).length} locação(ões) sem base_calculo_valor no banco
+            </strong>
+            <span className="text-orange-700"> — usando fallback: </span>
+            <code className="text-xs bg-orange-100 px-1 py-0.5 rounded">
+              valor_final − deslocamento − mão_de_obra − acessórios
+            </code>
+            <br />
+            <span className="text-xs text-orange-600 mt-0.5 block">
+              Clique em "Diagnosticar" para ver quais locações estão afetadas e corrigir no Supabase.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: '#f3e6e9' }}>
@@ -503,10 +631,17 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {alexEquipEff.map(d => (
+                  {alexEquipEff.map(d => {
+                    const usingFallback = d.locs.some(hasMissingBase);
+                    return (
                     <tr key={d.eq} className={d.qtd === 0 ? 'opacity-35' : ''}>
                       <td className="px-5 py-3 font-medium text-gray-800 dark:text-white">{d.eq}</td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{d.label}</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                        {d.label}
+                        {usingFallback && (
+                          <span className="ml-1 text-orange-500" title="Base derivada por fallback (base_calculo_valor vazio)">⚡</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{d.qtd}</td>
                       <td className="px-5 py-2 text-right">
                         {alexEditMode ? (
@@ -520,6 +655,9 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                         ) : (
                           <span className="font-semibold" style={{ color: d.qtd > 0 ? bordeaux : undefined }}>
                             {fmtR(d.valorProd)}
+                            {usingFallback && !alexManualApplied && (
+                              <span className="text-[10px] text-orange-500 block">⚡ fallback</span>
+                            )}
                             {alexManualApplied && alexManualSaved[d.eq] !== undefined && alexManualSaved[d.eq] !== d.valorProdAuto && (
                               <span className="text-[10px] text-amber-600 block">auto: {fmtR(d.valorProdAuto)}</span>
                             )}
@@ -527,7 +665,8 @@ export default function Fechamento({ locacoes }: FechamentoProps) {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   <tr className="border-t-2" style={{ borderColor: bordeaux }}>
                     <td colSpan={3} className="px-5 py-3 font-bold text-gray-800 dark:text-white">SUBTOTAL</td>
                     <td className="px-5 py-3 text-right text-lg font-bold" style={{ color: bordeaux }}>
