@@ -55,6 +55,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [cidade, setCidade] = useState('');
   const [baseTipo, setBaseTipo] = useState<'disparos' | 'horas' | 'valor_fixo'>('disparos');
   const [baseValor, setBaseValor] = useState<number>(1200);
+  const [descricaoValor, setDescricaoValor] = useState<string>('');
   const [maoDeObra, setMaoDeObra] = useState<number>(0);
   const [deslocamento, setDeslocamento] = useState<number>(150);
   const [valorLocacao, setValorLocacao] = useState<number>(0);
@@ -112,7 +113,15 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setValorLocacao(loc.valor_locacao);
     setNfStatus(loc.nf_status ?? (loc.nf_emitida ? 'emitida' : 'pendente'));
     setLocacaoStatus(loc.status);
-    setObservacoes(loc.observacoes || '');
+    const obs = loc.observacoes || '';
+    if (obs.startsWith('[DETALHAMENTO] ')) {
+      const parts = obs.slice('[DETALHAMENTO] '.length).split('\n');
+      setDescricaoValor(parts[0]);
+      setObservacoes(parts.slice(1).join('\n'));
+    } else {
+      setDescricaoValor('');
+      setObservacoes(obs);
+    }
     setIsCreateOpen(true);
   };
 
@@ -120,6 +129,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setEditingLocacao(null);
     setCliente(''); setDra(''); setCidade('');
     setValorEquipamento(0);
+    setDescricaoValor('');
     setMaoDeObra(0); setDeslocamento(0); setValorLocacao(0);
     setNfStatus('pendente'); setObservacoes('');
     setData(new Date().toISOString().split('T')[0]);
@@ -145,7 +155,9 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
       nf_status: nfStatus,
       nf_emitida: nfStatus === 'emitida',
       status: locacaoStatus,
-      observacoes
+      observacoes: descricaoValor
+        ? `[DETALHAMENTO] ${descricaoValor}${observacoes ? '\n' + observacoes : ''}`
+        : observacoes,
     });
 
     setIsCreateOpen(false);
@@ -840,6 +852,19 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   <p className="text-[10px] text-gray-400 mt-1">
                     Valor cobrado pelo uso do equipamento (disparos, horas, diária — como negociado)
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                    Detalhamento do Valor
+                  </label>
+                  <input
+                    type="text"
+                    value={descricaoValor}
+                    placeholder="Ex: 1.500 disparos × R$2,10 · ou · 6h × R$250 · ou · Diária 12h com desconto"
+                    onChange={e => setDescricaoValor(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2.5 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
