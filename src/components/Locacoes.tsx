@@ -73,6 +73,9 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [vectusHoras, setVectusHoras] = useState(4);
   const [co2Horas, setCo2Horas] = useState(6);
   const [lavieenHoras, setLavieenHoras] = useState(6);
+  // Override manual de preço por disparo e valor de diária
+  const [precoDispManual, setPrecoDispManual] = useState<string>('');
+  const [diariaMptValor, setDiariaMptValor] = useState<number>(400);
 
   // Toast dynamic notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -93,12 +96,12 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     let baseComp = 0;
     const shots = Number(baseValor) || 0;
 
+    const precoManual = precoDispManual !== '' ? Number(precoDispManual) : null;
     if (equipamento === 'Ultraformer III') {
-      baseComp = calcUltra3(shots, ultra3Corporal);
+      baseComp = precoManual != null ? shots * precoManual : calcUltra3(shots, ultra3Corporal);
     } else if (equipamento === 'Ultraformer MPT') {
-      if (mptBillingMode === 'diaria6h') baseComp = 400;
-      else if (mptBillingMode === 'diaria12h') baseComp = 600;
-      else baseComp = calcMpt(shots);
+      if (mptBillingMode === 'diaria6h' || mptBillingMode === 'diaria12h') baseComp = diariaMptValor;
+      else baseComp = precoManual != null ? shots * precoManual : calcMpt(shots);
     } else if (equipamento === 'Endolaser') {
       if (endoBillingMode === 'diaria12h') baseComp = 1200;
       else if (endoBillingMode === 'diaria2dias') baseComp = 2000;
@@ -120,7 +123,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setValorFinal(Math.round(total));
   }, [equipamento, baseTipo, baseValor, maoDeObra, deslocamento, valorLocacao,
       ultra3Corporal, mptBillingMode, endoBillingMode, endoHoras, endoFibras,
-      vectusHoras, co2Horas, lavieenHoras]);
+      vectusHoras, co2Horas, lavieenHoras, precoDispManual, diariaMptValor]);
 
   const handleEqChange = (eq: string) => {
     setEquipamento(eq);
@@ -133,6 +136,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setVectusHoras(4);
     setCo2Horas(6);
     setLavieenHoras(6);
+    setPrecoDispManual('');
+    setDiariaMptValor(400);
 
     if (eq === 'Ultraformer III') {
       setBaseTipo('disparos'); setBaseValor(1000);
@@ -172,10 +177,14 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
 
     // Restore equipment-specific UI state
     setUltra3Corporal(false);
+    setPrecoDispManual('');
     if (loc.equipamento === 'Ultraformer MPT' && loc.base_calculo_tipo === 'valor_fixo') {
-      setMptBillingMode(loc.base_calculo_valor <= 400 ? 'diaria6h' : 'diaria12h');
+      const isDiaria6h = loc.base_calculo_valor <= 400;
+      setMptBillingMode(isDiaria6h ? 'diaria6h' : 'diaria12h');
+      setDiariaMptValor(loc.valor_final - (loc.deslocamento || 0) - (loc.mao_de_obra || 0) - (loc.valor_locacao || 0));
     } else {
       setMptBillingMode('disparos');
+      setDiariaMptValor(400);
     }
     if (loc.equipamento === 'Endolaser') {
       if (loc.base_calculo_tipo === 'horas') {
@@ -208,6 +217,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setMptBillingMode('disparos');
     setEndoBillingMode('horas'); setEndoHoras(4); setEndoFibras(0);
     setVectusHoras(4); setCo2Horas(6); setLavieenHoras(6);
+    setPrecoDispManual('');
+    setDiariaMptValor(400);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -932,27 +943,39 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos (mín. 1.000)</label>
-                        <input type="number" min={1000} value={baseValor}
+                        <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos</label>
+                        <input type="number" min={1} value={baseValor}
                           onChange={e => setBaseValor(Number(e.target.value))}
                           className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
                         />
                       </div>
-                      <div className="flex items-end pb-2">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input type="checkbox" checked={ultra3Corporal}
-                            onChange={e => setUltra3Corporal(e.target.checked)}
-                            className="w-4 h-4 accent-[#8B1A2E]"
-                          />
-                          <span className="text-xs text-gray-700 leading-tight">
-                            Cartucho Corporal<br/>
-                            <span className="text-[10px] text-gray-400">R$ 1,50/disparo</span>
-                          </span>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">
+                          Preço/Disparo (R$)
+                          <span className="text-gray-400 ml-1">— deixe em branco para tabela</span>
                         </label>
+                        <input type="number" min={0} step={0.01}
+                          value={precoDispManual}
+                          placeholder={ultra3Corporal ? '1,50' : baseValor > 2000 ? '1,70' : '1,80'}
+                          onChange={e => setPrecoDispManual(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                        />
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" checked={ultra3Corporal}
+                          onChange={e => setUltra3Corporal(e.target.checked)}
+                          className="w-4 h-4 accent-[#8B1A2E]"
+                        />
+                        <span className="text-xs text-gray-700">
+                          Cartucho Corporal
+                          <span className="text-[10px] text-gray-400 ml-1">(R$ 1,50/disp pela tabela)</span>
+                        </span>
+                      </label>
+                    </div>
                     <p className="text-[10px] text-gray-400 bg-white rounded px-2 py-1.5 border border-gray-100">
-                      Face: ≤ 2.000 disparos → R$1,80/disp · &gt;2.000 → R$1,70/disp · Corporal → R$1,50/disp
+                      Tabela: ≤ 2.000 disparos → R$1,80/disp · &gt;2.000 → R$1,70/disp · Corporal → R$1,50/disp
                     </p>
                   </div>
                 )}
@@ -965,11 +988,15 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                       <div className="flex gap-1.5">
                         {[
                           { val: 'disparos',  label: 'Por Disparos' },
-                          { val: 'diaria6h',  label: 'Diária 6h — R$400' },
-                          { val: 'diaria12h', label: 'Diária 12h — R$600' },
+                          { val: 'diaria6h',  label: 'Diária 6h' },
+                          { val: 'diaria12h', label: 'Diária 12h' },
                         ].map(opt => (
                           <button key={opt.val} type="button"
-                            onClick={() => setMptBillingMode(opt.val as typeof mptBillingMode)}
+                            onClick={() => {
+                              setMptBillingMode(opt.val as typeof mptBillingMode);
+                              if (opt.val === 'diaria6h') setDiariaMptValor(400);
+                              if (opt.val === 'diaria12h') setDiariaMptValor(600);
+                            }}
                             className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${
                               mptBillingMode === opt.val ? 'bg-[#8B1A2E] text-white border-[#8B1A2E]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                             }`}
@@ -977,17 +1004,45 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                         ))}
                       </div>
                     </div>
-                    {mptBillingMode === 'disparos' && (
+                    {mptBillingMode === 'disparos' ? (
                       <>
-                        <div>
-                          <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos (mín. 1.000)</label>
-                          <input type="number" min={1000} value={baseValor}
-                            onChange={e => setBaseValor(Number(e.target.value))}
-                            className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
-                          />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Disparos</label>
+                            <input type="number" min={1} value={baseValor}
+                              onChange={e => setBaseValor(Number(e.target.value))}
+                              className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-500 mb-1">
+                              Preço/Disparo (R$)
+                              <span className="text-gray-400 ml-1">— em branco = tabela</span>
+                            </label>
+                            <input type="number" min={0} step={0.01}
+                              value={precoDispManual}
+                              placeholder={baseValor > 3000 ? '2,00' : baseValor > 1500 ? '2,10' : '2,20'}
+                              onChange={e => setPrecoDispManual(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                            />
+                          </div>
                         </div>
-                        <p className="text-[10px] text-gray-400">≤ 1.500 → R$2,20/disp · 1.501–3.000 → R$2,10/disp · &gt;3.000 → R$2,00/disp</p>
+                        <p className="text-[10px] text-gray-400">Tabela: ≤ 1.500 → R$2,20/disp · 1.501–3.000 → R$2,10/disp · &gt;3.000 → R$2,00/disp</p>
                       </>
+                    ) : (
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">
+                          Valor da Diária (R$)
+                          <span className="text-gray-400 ml-1">— editável para descontos</span>
+                        </label>
+                        <input type="number" min={0} value={diariaMptValor}
+                          onChange={e => setDiariaMptValor(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          Tabela: 6h → R$400 · 12h → R$600
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
