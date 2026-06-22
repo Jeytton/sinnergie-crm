@@ -10,7 +10,7 @@ interface FechamentoProps {
 type Tab = 'alessandro' | 'luiza';
 
 const ALEX_DISPAROS = ['Ultraformer III', 'Ultraformer MPT'];
-const ALEX_HORAS = ['Endolaser Pioon', 'CO2 Fracionado', 'CO2 Íntimo', 'Laser Vectus'];
+const ALEX_HORAS = ['Endolaser Pioon', 'CO2 Fracionado', 'CO2 Íntimo', 'Laser Vectus', 'Lavieen', 'Onda Coolwaves'];
 const ALEX_ALL = [...ALEX_DISPAROS, ...ALEX_HORAS];
 const ALL_EQUIPMENT = ['Ultraformer III', 'Ultraformer MPT', 'Endolaser Pioon', 'CO2 Fracionado', 'CO2 Íntimo', 'Laser Vectus', 'Lavieen', 'Onda Coolwaves'];
 
@@ -54,8 +54,6 @@ function getProductionValue(loc: Locacao): number {
   if (eq.includes('endolaser') || eq.includes('pioon')) return baseHoras;
   if (eq.includes('co2') || eq.includes('co₂'))     return baseHoras;
   if (eq.includes('ultraformer'))                    return baseHoras; // fallback sem disparos reais
-  if (eq.includes('lavieen'))                        return 0;
-  if (eq.includes('coolwaves'))                      return 0;
   return baseHoras;
 }
 

@@ -114,7 +114,6 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setQtdDisparos(''); setValorDisparos(0); setValorHorasUF(0);
     setFibra('não'); setValorHoraEndo(0);
     setValorHorasVectus(0);
-    setMaoDeObra(0); setDeslocamento(0); setValorLocacao(0);
   };
 
   const openEdit = (loc: Locacao) => {
@@ -655,9 +654,9 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     <td className="py-3.5 px-4 text-gray-700 whitespace-nowrap">{item.cidade || 'Não informada'}</td>
                     <td className="py-3.5 px-4 text-right font-mono text-gray-650">
                       {item.base_calculo_tipo === 'disparos' ? (
-                        <span>{item.base_calculo_valor} disparos</span>
+                        <span>R$ {item.base_calculo_valor.toLocaleString('pt-BR', {minimumFractionDigits:2})} disparos</span>
                       ) : item.base_calculo_tipo === 'horas' ? (
-                        <span>R$ {item.base_calculo_valor.toLocaleString('pt-BR')} base</span>
+                        <span>R$ {item.base_calculo_valor.toLocaleString('pt-BR', {minimumFractionDigits:2})} base</span>
                       ) : (
                         <span>Valor Fixo</span>
                       )}
