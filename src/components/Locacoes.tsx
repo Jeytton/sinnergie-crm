@@ -98,13 +98,15 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     const isEndo = equipamento === 'Endolaser Pioon' || equipamento === 'CO2 Fracionado' || equipamento === 'CO2 Íntimo';
     const isVectus = equipamento === 'Laser Vectus' || equipamento === 'Lavieen' || equipamento === 'Onda Coolwaves';
 
+    const totalDisparos = (Number(qtdDisparos) || 0) * (Number(valorDisparos) || 0);
+
     let total = 0;
-    if (isUF)      total = (Number(valorDisparos)||0) + (Number(valorHorasUF)||0) + mo + desl + outros;
+    if (isUF)      total = totalDisparos + (Number(valorHorasUF)||0) + mo + desl + outros;
     else if (isEndo)   total = (Number(valorHoraEndo)||0) + desl + outros;
     else if (isVectus) total = (Number(valorHorasVectus)||0) + desl + mo + outros;
     else               total = (Number(baseValor)||0) + mo + desl + outros;
     setValorFinal(total);
-  }, [equipamento, valorDisparos, valorHorasUF, valorHoraEndo, valorHorasVectus,
+  }, [equipamento, qtdDisparos, valorDisparos, valorHorasUF, valorHoraEndo, valorHorasVectus,
       maoDeObra, deslocamento, valorLocacao, baseValor]);
 
   const handleEqChange = (eq: string) => {
@@ -186,7 +188,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     const isVectus = eq === 'Laser Vectus' || eq === 'Lavieen' || eq === 'Onda Coolwaves';
 
     // base_calculo_valor = o valor principal de produção para Fechamento
-    const bcValor = isUF ? Number(valorDisparos)
+    const bcValor = isUF ? (Number(qtdDisparos)||0) * (Number(valorDisparos)||0)
                   : isEndo ? Number(valorHoraEndo)
                   : isVectus ? Number(valorHorasVectus)
                   : Number(baseValor);
@@ -909,7 +911,14 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Valor Disparos (R$)</label>
+                        <label className="block text-[10px] text-gray-500 mb-1">
+                          Preço / Disparo (R$)
+                          {qtdDisparos && valorDisparos > 0 && (
+                            <span className="ml-2 text-emerald-600 font-bold">
+                              = R$ {((Number(qtdDisparos)||0) * valorDisparos).toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                            </span>
+                          )}
+                        </label>
                         <input type="number" min={0} step={0.01} value={valorDisparos || ''}
                           placeholder="0"
                           onChange={e => setValorDisparos(Number(e.target.value))}
