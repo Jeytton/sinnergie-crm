@@ -54,19 +54,26 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [equipamento, setEquipamento] = useState('Ultraformer III');
   const [cidade, setCidade] = useState('');
   const [baseTipo, setBaseTipo] = useState<'disparos' | 'horas' | 'valor_fixo'>('disparos');
-  const [baseValor, setBaseValor] = useState<number>(1200);
-  const [descricaoValor, setDescricaoValor] = useState<string>('');
+  const [baseValor, setBaseValor] = useState<number>(0);
   const [maoDeObra, setMaoDeObra] = useState<number>(0);
-  const [deslocamento, setDeslocamento] = useState<number>(150);
+  const [deslocamento, setDeslocamento] = useState<number>(0);
   const [valorLocacao, setValorLocacao] = useState<number>(0);
-  const [valorFinal, setValorFinal] = useState<number>(1350);
+  const [valorFinal, setValorFinal] = useState<number>(0);
   const [nfStatus, setNfStatus] = useState<'pendente' | 'emitida' | 'nao_requer'>('pendente');
   const [nfDropdownId, setNfDropdownId] = useState<string | null>(null);
   const [locacaoStatus, setLocacaoStatus] = useState<'agendado' | 'concluido' | 'cancelado'>('agendado');
   const [observacoes, setObservacoes] = useState('');
 
-  // Valor base do equipamento (inserido manualmente)
-  const [valorEquipamento, setValorEquipamento] = useState<number>(0);
+  // ── Campos específicos por equipamento ──────────────────────────────────
+  // UF III / UF MPT
+  const [qtdDisparos, setQtdDisparos] = useState<string>('');   // quantidade (texto livre, só referência)
+  const [valorDisparos, setValorDisparos] = useState<number>(0); // R$ cobrado pelos disparos
+  const [valorHorasUF, setValorHorasUF] = useState<number>(0);  // R$ cobrado por horas (soma junto)
+  // Endolaser / CO2
+  const [fibra, setFibra] = useState<string>('não');             // texto: "não", "1", "2"...
+  const [valorHoraEndo, setValorHoraEndo] = useState<number>(0); // R$ valor da hora
+  // Vectus / Lavieen / Coolwaves
+  const [valorHorasVectus, setValorHorasVectus] = useState<number>(0);
 
   // Toast dynamic notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -82,45 +89,74 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Cálculo do total: soma simples dos 4 campos
+  // Cálculo do total conforme equipamento
   useEffect(() => {
-    const total = (Number(valorEquipamento) || 0)
-      + (Number(maoDeObra) || 0)
-      + (Number(deslocamento) || 0)
-      + (Number(valorLocacao) || 0);
+    const mo = Number(maoDeObra) || 0;
+    const desl = Number(deslocamento) || 0;
+    const outros = Number(valorLocacao) || 0;
+    const isUF = equipamento === 'Ultraformer III' || equipamento === 'Ultraformer MPT';
+    const isEndo = equipamento === 'Endolaser Pioon' || equipamento === 'CO2 Fracionado' || equipamento === 'CO2 Íntimo';
+    const isVectus = equipamento === 'Laser Vectus' || equipamento === 'Lavieen' || equipamento === 'Onda Coolwaves';
+
+    let total = 0;
+    if (isUF)      total = (Number(valorDisparos)||0) + (Number(valorHorasUF)||0) + mo + desl + outros;
+    else if (isEndo)   total = (Number(valorHoraEndo)||0) + desl + outros;
+    else if (isVectus) total = (Number(valorHorasVectus)||0) + desl + mo + outros;
+    else               total = (Number(baseValor)||0) + mo + desl + outros;
     setValorFinal(total);
-  }, [valorEquipamento, maoDeObra, deslocamento, valorLocacao]);
+  }, [equipamento, valorDisparos, valorHorasUF, valorHoraEndo, valorHorasVectus,
+      maoDeObra, deslocamento, valorLocacao, baseValor]);
 
   const handleEqChange = (eq: string) => {
     setEquipamento(eq);
-    setValorEquipamento(0);
+    setQtdDisparos(''); setValorDisparos(0); setValorHorasUF(0);
+    setFibra('não'); setValorHoraEndo(0);
+    setValorHorasVectus(0);
+    setMaoDeObra(0); setDeslocamento(0); setValorLocacao(0);
   };
 
   const openEdit = (loc: Locacao) => {
     setEditingLocacao(loc);
-    setData(loc.data);
-    setHorario(loc.horario);
-    setCliente(loc.cliente);
-    setDra(loc.dra || '');
-    setEquipamento(loc.equipamento);
-    setCidade(loc.cidade || '');
-    setBaseTipo(loc.base_calculo_tipo);
-    setBaseValor(loc.base_calculo_valor);
-    // Valor do equipamento = base_calculo_valor salvo
-    setValorEquipamento(loc.base_calculo_valor || 0);
-    setMaoDeObra(loc.mao_de_obra);
-    setDeslocamento(loc.deslocamento);
+    setData(loc.data); setHorario(loc.horario);
+    setCliente(loc.cliente); setDra(loc.dra || '');
+    setEquipamento(loc.equipamento); setCidade(loc.cidade || '');
+    setMaoDeObra(loc.mao_de_obra); setDeslocamento(loc.deslocamento);
     setValorLocacao(loc.valor_locacao);
     setNfStatus(loc.nf_status ?? (loc.nf_emitida ? 'emitida' : 'pendente'));
     setLocacaoStatus(loc.status);
+
+    // Restaurar campos por equipamento a partir do obs salvo
     const obs = loc.observacoes || '';
-    if (obs.startsWith('[DETALHAMENTO] ')) {
-      const parts = obs.slice('[DETALHAMENTO] '.length).split('\n');
-      setDescricaoValor(parts[0]);
-      setObservacoes(parts.slice(1).join('\n'));
+    const meta: Record<string, string> = {};
+    let obsLimpo = obs;
+    if (obs.startsWith('[META]')) {
+      const endMeta = obs.indexOf('[/META]');
+      if (endMeta > -1) {
+        obs.slice(6, endMeta).split('|').forEach(pair => {
+          const [k, v] = pair.split('=');
+          if (k) meta[k.trim()] = (v || '').trim();
+        });
+        obsLimpo = obs.slice(endMeta + 7).trim();
+      }
+    }
+    setObservacoes(obsLimpo);
+
+    const eq = loc.equipamento;
+    const isUF = eq === 'Ultraformer III' || eq === 'Ultraformer MPT';
+    const isEndo = eq === 'Endolaser Pioon' || eq === 'CO2 Fracionado' || eq === 'CO2 Íntimo';
+    const isVectus = eq === 'Laser Vectus' || eq === 'Lavieen' || eq === 'Onda Coolwaves';
+
+    if (isUF) {
+      setQtdDisparos(meta.qtd || '');
+      setValorDisparos(Number(meta.vdisp) || loc.base_calculo_valor || 0);
+      setValorHorasUF(Number(meta.vhoras) || 0);
+    } else if (isEndo) {
+      setFibra(meta.fibra || 'não');
+      setValorHoraEndo(loc.base_calculo_valor || 0);
+    } else if (isVectus) {
+      setValorHorasVectus(loc.base_calculo_valor || 0);
     } else {
-      setDescricaoValor('');
-      setObservacoes(obs);
+      setBaseValor(loc.base_calculo_valor || 0);
     }
     setIsCreateOpen(true);
   };
@@ -128,26 +164,51 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const resetForm = () => {
     setEditingLocacao(null);
     setCliente(''); setDra(''); setCidade('');
-    setValorEquipamento(0);
-    setDescricaoValor('');
     setMaoDeObra(0); setDeslocamento(0); setValorLocacao(0);
     setNfStatus('pendente'); setObservacoes('');
     setData(new Date().toISOString().split('T')[0]);
     setHorario('09:00');
     setEquipamento('Ultraformer III');
-    setBaseTipo('valor_fixo'); setBaseValor(0);
+    setBaseTipo('disparos'); setBaseValor(0);
     setLocacaoStatus('agendado');
+    setQtdDisparos(''); setValorDisparos(0); setValorHorasUF(0);
+    setFibra('não'); setValorHoraEndo(0);
+    setValorHorasVectus(0);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cliente.trim() || !equipamento) return;
 
+    const eq = equipamento;
+    const isUF = eq === 'Ultraformer III' || eq === 'Ultraformer MPT';
+    const isEndo = eq === 'Endolaser Pioon' || eq === 'CO2 Fracionado' || eq === 'CO2 Íntimo';
+    const isVectus = eq === 'Laser Vectus' || eq === 'Lavieen' || eq === 'Onda Coolwaves';
+
+    // base_calculo_valor = o valor principal de produção para Fechamento
+    const bcValor = isUF ? Number(valorDisparos)
+                  : isEndo ? Number(valorHoraEndo)
+                  : isVectus ? Number(valorHorasVectus)
+                  : Number(baseValor);
+    const bcTipo: 'disparos' | 'horas' | 'valor_fixo' =
+      isUF ? 'disparos' : (isEndo || isVectus) ? 'horas' : 'valor_fixo';
+
+    // Metadados extras salvos em observacoes
+    let metaParts: string[] = [];
+    if (isUF) {
+      if (qtdDisparos) metaParts.push(`qtd=${qtdDisparos}`);
+      metaParts.push(`vdisp=${valorDisparos}`);
+      if (valorHorasUF) metaParts.push(`vhoras=${valorHorasUF}`);
+    } else if (isEndo) {
+      metaParts.push(`fibra=${fibra}`);
+    }
+    const metaStr = metaParts.length > 0 ? `[META]${metaParts.join('|')}[/META]\n` : '';
+
     await onSave({
       ...(editingLocacao ? { id: editingLocacao.id } : {}),
       data, horario, cliente, dra, equipamento, cidade,
-      base_calculo_tipo: 'valor_fixo',
-      base_calculo_valor: Number(valorEquipamento),
+      base_calculo_tipo: bcTipo,
+      base_calculo_valor: bcValor,
       mao_de_obra: Number(maoDeObra),
       deslocamento: Number(deslocamento),
       valor_locacao: Number(valorLocacao),
@@ -155,9 +216,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
       nf_status: nfStatus,
       nf_emitida: nfStatus === 'emitida',
       status: locacaoStatus,
-      observacoes: descricaoValor
-        ? `[DETALHAMENTO] ${descricaoValor}${observacoes ? '\n' + observacoes : ''}`
-        : observacoes,
+      observacoes: metaStr + observacoes,
     });
 
     setIsCreateOpen(false);
@@ -832,76 +891,158 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                 </div>
               </div>
 
-              {/* VALORES — 100% manual */}
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
+              {/* VALORES — campos específicos por equipamento */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-[#8B1A2E]">
-                  Valores da Locação
+                  Valores — {equipamento}
                 </span>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Valor do Equipamento (R$) *
-                  </label>
-                  <input
-                    type="number" min={0} step={0.01}
-                    value={valorEquipamento || ''}
-                    placeholder="0"
-                    onChange={e => setValorEquipamento(Number(e.target.value))}
-                    className="w-full bg-white border border-gray-300 rounded-lg text-sm py-2.5 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Valor cobrado pelo uso do equipamento (disparos, horas, diária — como negociado)
-                  </p>
-                </div>
+                {/* ── UF III / UF MPT ── */}
+                {(equipamento === 'Ultraformer III' || equipamento === 'Ultraformer MPT') && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Qtd. Disparos (referência)</label>
+                        <input type="text" value={qtdDisparos} placeholder="Ex: 1500"
+                          onChange={e => setQtdDisparos(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Valor Disparos (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorDisparos || ''}
+                          placeholder="0"
+                          onChange={e => setValorDisparos(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-300 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Valor Horas (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorHorasUF || ''}
+                          placeholder="0"
+                          onChange={e => setValorHorasUF(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Mão de Obra (R$)</label>
+                        <input type="number" min={0} step={0.01} value={maoDeObra || ''}
+                          placeholder="0"
+                          onChange={e => setMaoDeObra(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Deslocamento (R$)</label>
+                        <input type="number" min={0} step={0.01} value={deslocamento || ''}
+                          placeholder="0"
+                          onChange={e => setDeslocamento(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1">Locação / Outros (R$)</label>
+                      <input type="number" min={0} step={0.01} value={valorLocacao || ''}
+                        placeholder="0"
+                        onChange={e => setValorLocacao(Number(e.target.value))}
+                        className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                      />
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Detalhamento do Valor
-                  </label>
-                  <input
-                    type="text"
-                    value={descricaoValor}
-                    placeholder="Ex: 1.500 disparos × R$2,10 · ou · 6h × R$250 · ou · Diária 12h com desconto"
-                    onChange={e => setDescricaoValor(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2.5 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
-                  />
-                </div>
+                {/* ── Endolaser / CO2 ── */}
+                {(equipamento === 'Endolaser Pioon' || equipamento === 'CO2 Fracionado' || equipamento === 'CO2 Íntimo') && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Fibra (qtd ou "não")</label>
+                        <input type="text" value={fibra} placeholder="não"
+                          onChange={e => setFibra(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Valor da Hora (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorHoraEndo || ''}
+                          placeholder="0"
+                          onChange={e => setValorHoraEndo(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-300 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Deslocamento (R$)</label>
+                        <input type="number" min={0} step={0.01} value={deslocamento || ''}
+                          placeholder="0"
+                          onChange={e => setDeslocamento(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Outros (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorLocacao || ''}
+                          placeholder="0"
+                          onChange={e => setValorLocacao(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Mão de Obra (R$)</label>
-                    <input type="number" min={0} step={0.01} value={maoDeObra || ''}
-                      placeholder="0"
-                      onChange={e => setMaoDeObra(Number(e.target.value))}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
-                    />
+                {/* ── Laser Vectus / Lavieen / Coolwaves ── */}
+                {(equipamento === 'Laser Vectus' || equipamento === 'Lavieen' || equipamento === 'Onda Coolwaves') && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Valor das Horas (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorHorasVectus || ''}
+                          placeholder="0"
+                          onChange={e => setValorHorasVectus(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-300 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Mão de Obra (R$)</label>
+                        <input type="number" min={0} step={0.01} value={maoDeObra || ''}
+                          placeholder="0"
+                          onChange={e => setMaoDeObra(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Deslocamento (R$)</label>
+                        <input type="number" min={0} step={0.01} value={deslocamento || ''}
+                          placeholder="0"
+                          onChange={e => setDeslocamento(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 mb-1">Outros (R$)</label>
+                        <input type="number" min={0} step={0.01} value={valorLocacao || ''}
+                          placeholder="0"
+                          onChange={e => setValorLocacao(Number(e.target.value))}
+                          className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Deslocamento / Frete (R$)</label>
-                    <input type="number" min={0} step={0.01} value={deslocamento || ''}
-                      placeholder="0"
-                      onChange={e => setDeslocamento(Number(e.target.value))}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Acessórios / Outros (R$)</label>
-                    <input type="number" min={0} step={0.01} value={valorLocacao || ''}
-                      placeholder="0"
-                      onChange={e => setValorLocacao(Number(e.target.value))}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900 focus:outline-none focus:border-[#8B1A2E]"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Total */}
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex justify-between items-center">
                 <div>
                   <span className="text-xs text-emerald-800 font-bold">Valor Total</span>
-                  <p className="text-[10px] text-gray-500 mt-0.5">
-                    Equipamento + Mão de Obra + Frete + Outros
-                  </p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Soma automática dos campos acima</p>
                 </div>
                 <div className="text-2xl font-bold text-emerald-700">
                   R$ {valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
