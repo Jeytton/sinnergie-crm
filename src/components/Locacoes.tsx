@@ -73,9 +73,11 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
   const [vectusHoras, setVectusHoras] = useState(4);
   const [co2Horas, setCo2Horas] = useState(6);
   const [lavieenHoras, setLavieenHoras] = useState(6);
-  // Override manual de preço por disparo e valor de diária
+  // Override manual de preço por disparo, valor de diária e base geral
   const [precoDispManual, setPrecoDispManual] = useState<string>('');
   const [diariaMptValor, setDiariaMptValor] = useState<number>(400);
+  const [endoDiariaValor, setEndoDiariaValor] = useState<number>(1200);
+  const [baseManual, setBaseManual] = useState<string>(''); // override total da base para qualquer equipamento
 
   // Toast dynamic notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -93,6 +95,13 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
 
   // Auto-calculation — equipment-aware
   useEffect(() => {
+    // Se usuário preencheu base manual, ela tem prioridade total
+    if (baseManual !== '') {
+      const total = Number(baseManual) + (Number(maoDeObra) || 0) + (Number(deslocamento) || 0) + (Number(valorLocacao) || 0);
+      setValorFinal(Math.round(total));
+      return;
+    }
+
     let baseComp = 0;
     const shots = Number(baseValor) || 0;
 
@@ -102,12 +111,11 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     } else if (equipamento === 'Ultraformer MPT') {
       if (mptBillingMode === 'diaria6h' || mptBillingMode === 'diaria12h') baseComp = diariaMptValor;
       else baseComp = precoManual != null ? shots * precoManual : calcMpt(shots);
-    } else if (equipamento === 'Endolaser') {
-      if (endoBillingMode === 'diaria12h') baseComp = 1200;
-      else if (endoBillingMode === 'diaria2dias') baseComp = 2000;
+    } else if (equipamento === 'Endolaser Pioon') {
+      if (endoBillingMode === 'diaria12h' || endoBillingMode === 'diaria2dias') baseComp = endoDiariaValor;
       else baseComp = endoHoras * 250;
       baseComp += endoFibras * 1000;
-    } else if (equipamento === 'Vectus') {
+    } else if (equipamento === 'Laser Vectus') {
       baseComp = VECTUS_TABLE[vectusHoras] || 0;
     } else if (equipamento === 'CO2 Fracionado') {
       baseComp = CO2_DERMATO_TABLE[co2Horas] || 0;
@@ -123,7 +131,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setValorFinal(Math.round(total));
   }, [equipamento, baseTipo, baseValor, maoDeObra, deslocamento, valorLocacao,
       ultra3Corporal, mptBillingMode, endoBillingMode, endoHoras, endoFibras,
-      vectusHoras, co2Horas, lavieenHoras, precoDispManual, diariaMptValor]);
+      vectusHoras, co2Horas, lavieenHoras, precoDispManual, diariaMptValor,
+      endoDiariaValor, baseManual]);
 
   const handleEqChange = (eq: string) => {
     setEquipamento(eq);
@@ -138,6 +147,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setLavieenHoras(6);
     setPrecoDispManual('');
     setDiariaMptValor(400);
+    setEndoDiariaValor(1200);
+    setBaseManual('');
 
     if (eq === 'Ultraformer III') {
       setBaseTipo('disparos'); setBaseValor(1000);
@@ -178,6 +189,7 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     // Restore equipment-specific UI state
     setUltra3Corporal(false);
     setPrecoDispManual('');
+    setBaseManual('');
     if (loc.equipamento === 'Ultraformer MPT' && loc.base_calculo_tipo === 'valor_fixo') {
       const isDiaria6h = loc.base_calculo_valor <= 400;
       setMptBillingMode(isDiaria6h ? 'diaria6h' : 'diaria12h');
@@ -219,6 +231,8 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
     setVectusHoras(4); setCo2Horas(6); setLavieenHoras(6);
     setPrecoDispManual('');
     setDiariaMptValor(400);
+    setEndoDiariaValor(1200);
+    setBaseManual('');
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -1047,19 +1061,23 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                   </div>
                 )}
 
-                {/* ENDOLASER */}
-                {equipamento === 'Endolaser' && (
+                {/* ENDOLASER PIOON */}
+                {equipamento === 'Endolaser Pioon' && (
                   <div className="space-y-3">
                     <div>
                       <label className="block text-[10px] text-gray-500 mb-1.5">Forma de Cobrança</label>
                       <div className="flex gap-1.5">
                         {[
                           { val: 'horas',       label: 'Por Horas — R$250/h' },
-                          { val: 'diaria12h',   label: 'Diária 12h — R$1.200' },
-                          { val: 'diaria2dias', label: '2 Dias — R$2.000' },
+                          { val: 'diaria12h',   label: 'Diária 12h' },
+                          { val: 'diaria2dias', label: '2 Dias' },
                         ].map(opt => (
                           <button key={opt.val} type="button"
-                            onClick={() => setEndoBillingMode(opt.val as typeof endoBillingMode)}
+                            onClick={() => {
+                              setEndoBillingMode(opt.val as typeof endoBillingMode);
+                              if (opt.val === 'diaria12h') setEndoDiariaValor(1200);
+                              if (opt.val === 'diaria2dias') setEndoDiariaValor(2000);
+                            }}
                             className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${
                               endoBillingMode === opt.val ? 'bg-[#8B1A2E] text-white border-[#8B1A2E]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                             }`}
@@ -1067,35 +1085,52 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                         ))}
                       </div>
                     </div>
-                    {endoBillingMode === 'horas' && (
+                    {endoBillingMode === 'horas' ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Horas</label>
+                          <input type="number" min={1} value={endoHoras}
+                            onChange={e => setEndoHoras(Number(e.target.value))}
+                            className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-1">Fibras utilizadas</label>
+                          <input type="number" min={0} value={endoFibras}
+                            onChange={e => setEndoFibras(Number(e.target.value))}
+                            className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
+                          />
+                          <span className="text-[10px] text-gray-400">R$1.000/fibra</span>
+                        </div>
+                      </div>
+                    ) : (
                       <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Quantidade de Horas</label>
-                        <input type="number" min={1} max={24} value={endoHoras}
-                          onChange={e => setEndoHoras(Number(e.target.value))}
+                        <label className="block text-[10px] text-gray-500 mb-1">
+                          Valor da Diária (R$)
+                          <span className="text-gray-400 ml-1">— editável para descontos</span>
+                        </label>
+                        <input type="number" min={0} value={endoDiariaValor}
+                          onChange={e => setEndoDiariaValor(Number(e.target.value))}
                           className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
                         />
+                        <p className="text-[10px] text-gray-400 mt-1">Tabela: 12h → R$1.200 · 2 dias → R$2.000</p>
                       </div>
                     )}
-                    <div>
-                      <label className="block text-[10px] text-gray-500 mb-1">Fibras utilizadas (R$1.000/unidade)</label>
-                      <input type="number" min={0} max={20} value={endoFibras}
-                        onChange={e => setEndoFibras(Number(e.target.value))}
-                        className="w-full bg-white border border-gray-200 rounded-lg text-xs py-1.5 px-3 text-gray-900"
-                      />
-                    </div>
                   </div>
                 )}
 
-                {/* VECTUS */}
-                {equipamento === 'Vectus' && (
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Período de Locação</label>
-                    <select value={vectusHoras} onChange={e => setVectusHoras(Number(e.target.value))}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
-                      {Object.entries(VECTUS_TABLE).map(([h, v]) => (
-                        <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
-                      ))}
-                    </select>
+                {/* LASER VECTUS */}
+                {equipamento === 'Laser Vectus' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1">Período de Locação (tabela)</label>
+                      <select value={vectusHoras} onChange={e => setVectusHoras(Number(e.target.value))}
+                        className="w-full bg-white border border-gray-200 rounded-lg text-xs py-2 px-3 text-gray-900">
+                        {Object.entries(VECTUS_TABLE).map(([h, v]) => (
+                          <option key={h} value={h}>{h}h — R$ {v.toLocaleString('pt-BR')}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
 
@@ -1138,6 +1173,27 @@ export default function Locacoes({ locacoes, onSave, onDelete, onBulkImport }: L
                     <p className="text-[10px] text-gray-400 mt-1">Normalmente comercializado em combo com Ultraformer</p>
                   </div>
                 )}
+
+                {/* Override manual da base — disponível para qualquer equipamento */}
+                <div className="pt-2 border-t border-gray-200">
+                  <label className="block text-[10px] text-gray-500 mb-1">
+                    Valor Base Manual (R$)
+                    <span className="text-gray-400 ml-1">— substitui o cálculo automático acima</span>
+                  </label>
+                  <input
+                    type="number" min={0} step={0.01}
+                    value={baseManual}
+                    placeholder={`Automático: R$ ${(valorFinal - (Number(maoDeObra)||0) - (Number(deslocamento)||0) - (Number(valorLocacao)||0)).toLocaleString('pt-BR')}`}
+                    onChange={e => setBaseManual(e.target.value)}
+                    className="w-full bg-yellow-50 border border-yellow-200 rounded-lg text-xs py-1.5 px-3 text-gray-900 placeholder-gray-400"
+                  />
+                  {baseManual !== '' && (
+                    <button type="button" onClick={() => setBaseManual('')}
+                      className="text-[10px] text-yellow-700 underline mt-0.5">
+                      ✕ Limpar — voltar ao cálculo automático
+                    </button>
+                  )}
+                </div>
 
                 {/* Custos adicionais */}
                 <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200">
